@@ -899,7 +899,7 @@ class _EventDetailSheetState extends State<EventDetailSheet>
         else if (_remindersError)
           _EmptyHint('Failed to load. [RETRY]', 
             onTap: _fetchReminders, 
-            color: _DS.error.withValues(alpha: 0.7)),
+            color: _DS.error.withValues(alpha: 0.7))
         else if (_reminders.isEmpty)
           const _EmptyHint('No reminders set')
         else

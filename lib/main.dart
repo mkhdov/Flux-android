@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'core/services/notification_service.dart';
 
 import 'core/constants/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -14,6 +15,11 @@ import 'features/tasks/repositories/task_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Notification Service
+  final notificationService = NotificationService();
+  await notificationService.init();
+  await notificationService.requestPermissions();
 
   // Initialize AuthProvider for global auth state
   final authProvider = AuthProvider(AuthRepository());

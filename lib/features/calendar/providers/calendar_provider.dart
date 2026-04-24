@@ -4,6 +4,7 @@ import '../models/calendar_model.dart';
 import '../models/event_model.dart';
 import '../repositories/calendar_repository.dart';
 import '../repositories/event_repository.dart';
+import '../../../core/services/notification_service.dart';
 
 enum CalendarViewMode { schedule, day }
 
@@ -204,6 +205,7 @@ class CalendarProvider extends ChangeNotifier {
         for (final e in evts) {
           if (!existingIds.contains(e.id)) {
             _events.add(e);
+            _scheduleReminderForEvent(e);
           }
         }
         currentStart = currentEnd;
@@ -323,6 +325,9 @@ class CalendarProvider extends ChangeNotifier {
     try {
       final events = await _eventRepo.createEvent(calendarId: _selectedCalendar!.id, data: data, meetingType: meetingType, userId: userId);
       _events.addAll(events);
+      for (final e in events) {
+        _scheduleReminderForEvent(e);
+      }
       notifyListeners();
       return events;
     } catch (e) {
@@ -404,6 +409,7 @@ class CalendarProvider extends ChangeNotifier {
 
   void removeEventById(String eventId) {
     _events.removeWhere((e) => e.id == eventId);
+    _cancelReminderForEvent(eventId);
     notifyListeners();
   }
 
@@ -414,6 +420,7 @@ class CalendarProvider extends ChangeNotifier {
     } else {
       _events.add(event);
     }
+    _scheduleReminderForEvent(event);
     _events.sort((a, b) {
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
@@ -436,6 +443,7 @@ class CalendarProvider extends ChangeNotifier {
       final updated = await _eventRepo.updateEvent(eventId: eventId, data: data);
       if (idx != -1) {
         _events[idx] = updated;
+        _scheduleReminderForEvent(updated);
         notifyListeners();
       }
       return true;
@@ -451,6 +459,7 @@ class CalendarProvider extends ChangeNotifier {
   Future<void> deleteEvent(String eventId) async {
     final event = _events.firstWhere((e) => e.id == eventId, orElse: () => throw Exception('Event not found'));
     _events.removeWhere((e) => e.id == eventId);
+    _cancelReminderForEvent(eventId);
     notifyListeners();
 
     Future<void> action() async {
@@ -484,6 +493,7 @@ class CalendarProvider extends ChangeNotifier {
       final idx = _events.indexWhere((e) => e.id == eventId);
       if (idx != -1) {
         _events[idx] = event;
+        _scheduleReminderForEvent(event);
         notifyListeners();
       }
       return event;
@@ -565,5 +575,20 @@ class CalendarProvider extends ChangeNotifier {
       status: status,
       type: type,
     );
+  }
+
+  void _scheduleReminderForEvent(EventModel event) {
+    if (event.startDateTime != null) {
+      NotificationService().scheduleEventReminder(
+        eventId: event.id,
+        eventTitle: event.title,
+        eventStartTime: event.startDateTime!,
+        reminderMinutesBefore: 15, // Default reminder offset
+      );
+    }
+  }
+
+  void _cancelReminderForEvent(String eventId) {
+    NotificationService().cancelReminder(eventId);
   }
 }
