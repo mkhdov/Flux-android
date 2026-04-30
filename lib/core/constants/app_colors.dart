@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary brand colors (from web: #4e54c8 to #8f94fb gradient)
-  static const Color primary = Color(0xFF4E54C8);
-  static const Color primaryLight = Color(0xFF8F94FB);
+  // Primary brand colors (from web: coral #FF5A5F)
+  static const Color primary = Color(0xFFFF5A5F);
+  static const Color primaryLight = Color(0xFFFF7A7D);
   static const Color accent = Color(0xFFFF5A5F);
 
   // Background colors (dark theme from web)

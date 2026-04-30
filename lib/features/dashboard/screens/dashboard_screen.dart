@@ -10,6 +10,7 @@ import 'task_view.dart';
 import 'meeting_view.dart';
 import '../../calendar/widgets/calendar_drawer.dart';
 import '../../calendar/widgets/mini_calendar.dart';
+import '../../settings/screens/settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -60,8 +61,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         title: _buildTitle(calendarProvider),
         actions: [
-          // Refresh button
-          if (calendarProvider.selectedCalendar != null)
+          // Refresh button (not on settings tab)
+          if (calendarProvider.selectedCalendar != null && _currentIndex != 3)
             IconButton(
               icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary, size: 22),
               onPressed: () {
@@ -95,6 +96,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 CalendarView(),
                 TaskView(),
                 MeetingView(),
+                SettingsScreen(),
               ],
             ),
           ),
@@ -166,6 +168,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   }
                 },
               ),
+              _NavItem(
+                icon: Icons.settings_outlined,
+                activeIcon: Icons.settings,
+                label: 'Settings',
+                isActive: _currentIndex == 3,
+                onTap: () => setState(() => _currentIndex = 3),
+              ),
             ],
           ),
         ),
@@ -218,6 +227,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_currentIndex == 2) {
       return Text(
         'Meetings',
+        style: GoogleFonts.roboto(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      );
+    }
+    if (_currentIndex == 3) {
+      return Text(
+        'Settings',
         style: GoogleFonts.roboto(
           fontSize: 18,
           fontWeight: FontWeight.w600,

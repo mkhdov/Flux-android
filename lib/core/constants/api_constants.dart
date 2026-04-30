@@ -1,6 +1,9 @@
 // API base URL — matches https://api.flux-cal.com/ from web .env
 const String kBaseUrl = 'http://192.168.1.17';
 
+// Web Client ID for Google Auth (obtained from Google Cloud Console as Web Application Client ID)
+const String kGoogleWebClientId = 'YOUR_GOOGLE_WEB_CLIENT_ID';
+
 // Auth endpoints
 const String kLoginEndpoint = '/api/auth/login';
 const String kSignupEndpoint = '/api/auth/signup';

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/fcm_service.dart';
 
 import 'core/constants/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -15,11 +17,15 @@ import 'features/tasks/repositories/task_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   
-  // Initialize Notification Service
+  // Initialize local scheduled notifications
   final notificationService = NotificationService();
   await notificationService.init();
   await notificationService.requestPermissions();
+
+  // Initialize Firebase Cloud Messaging (remote push from backend)
+  await FcmService.instance.init();
 
   // Initialize AuthProvider for global auth state
   final authProvider = AuthProvider(AuthRepository());

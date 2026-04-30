@@ -577,18 +577,47 @@ class CalendarProvider extends ChangeNotifier {
     );
   }
 
-  void _scheduleReminderForEvent(EventModel event) {
-    if (event.startDateTime != null) {
-      NotificationService().scheduleEventReminder(
-        eventId: event.id,
-        eventTitle: event.title,
-        eventStartTime: event.startDateTime!,
-        reminderMinutesBefore: 15, // Default reminder offset
-      );
-    }
+  Future<void> _scheduleReminderForEvent(EventModel event) async {
+    if (event.startDateTime == null) return;
+
+    try {
+      final List<dynamic> reminders = await getRemindersForEvent(event.id);
+      
+      if (reminders.isNotEmpty) {
+        int i = 0;
+        for (final rem in reminders) {
+          final triggerTimeStr = rem['triggerTime'];
+          if (triggerTimeStr != null) {
+            final triggerTime = DateTime.parse(triggerTimeStr).toLocal();
+            int minutesBefore = event.startDateTime!.difference(triggerTime).inMinutes;
+
+            NotificationService().scheduleEventReminder(
+              eventId: '${event.id}_rem_$i',
+              eventTitle: event.title,
+              eventStartTime: event.startDateTime!,
+              reminderMinutesBefore: minutesBefore,
+            );
+            i++;
+          }
+        }
+        return; 
+      }
+    } catch (_) {}
+
+    // Fallback to default
+    NotificationService().scheduleEventReminder(
+      eventId: event.id,
+      eventTitle: event.title,
+      eventStartTime: event.startDateTime!,
+      reminderMinutesBefore: 15,
+    );
   }
 
   void _cancelReminderForEvent(String eventId) {
     NotificationService().cancelReminder(eventId);
+    // Ensure we cancel custom batched local reminders too
+    for (int i = 0; i < 5; i++) {
+      NotificationService().cancelReminder('${eventId}_rem_$i');
+    }
   }
 }

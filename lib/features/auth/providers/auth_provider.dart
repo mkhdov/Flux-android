@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
+import '../../../core/services/fcm_service.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
@@ -50,6 +52,11 @@ class AuthProvider extends ChangeNotifier {
       final user = await _repository.getCurrentUser();
       _user = user;
       _status = AuthStatus.authenticated;
+      // Cache userId so FcmService can register the token
+      if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cached_user_id', user.id);
+      }
       notifyListeners();
       return true;
     } catch (e) {
@@ -100,7 +107,13 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Unregister FCM token before clearing session
+    if (_user != null) {
+      await FcmService.instance.unregisterToken(_user!.id);
+    }
     await _repository.logout();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('cached_user_id');
     _user = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
