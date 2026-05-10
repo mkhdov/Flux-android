@@ -170,6 +170,7 @@ class _CreateEventSheetState extends State<CreateEventSheet> {
       'status': _status,
       'colorHex': _selectedColor,
       'allDay': _allDay,
+      if (_startDate != null) 'date': DateFormat('yyyy-MM-dd').format(_startDate!),
       if (_startDate != null) 'startTime': _buildIso(_startDate, _allDay ? null : _startTime),
       if (_endDate != null) 'endTime': _buildIso(_endDate, _allDay ? null : _endTime),
       if (_subtasks.isNotEmpty)
@@ -179,12 +180,6 @@ class _CreateEventSheetState extends State<CreateEventSheet> {
           ..._plannerDays,
           'numOfWeeks': _numOfWeeks,
         },
-      if (_notify)
-        'notification': {
-          'enabled': true,
-          'type': _notifType,
-          'minutesBefore': _notifMinutes,
-        },
     };
 
     try {
@@ -193,6 +188,29 @@ class _CreateEventSheetState extends State<CreateEventSheet> {
         meetingType: _meetingType,
         userId: auth.user?.id,
       );
+
+      if (events.isNotEmpty && _notify) {
+        for (final evt in events) {
+          final startDateStr = evt.startDateTime != null 
+              ? evt.startDateTime!.toUtc().toIso8601String() 
+              : data['startTime'] as String?;
+              
+          if (startDateStr != null) {
+            final st = DateTime.parse(startDateStr);
+            final triggerTime = st.subtract(Duration(minutes: _notifMinutes));
+            try {
+              await provider.createReminder({
+                'eventId': evt.id,
+                'userId': auth.user?.id ?? '',
+                'triggerTime': triggerTime.toUtc().toIso8601String(),
+                'type': _notifType,
+              });
+            } catch (e) {
+              debugPrint('Failed to create reminder for event ${evt.id}: $e');
+            }
+          }
+        }
+      }
 
       if (!mounted) return;
 

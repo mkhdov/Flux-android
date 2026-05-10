@@ -8,7 +8,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../calendar/widgets/event_detail_sheet.dart';
 
 class MeetingView extends StatefulWidget {
-  const MeetingView({super.key});
+  final GlobalKey<ScaffoldState>? scaffoldKey;
+  const MeetingView({super.key, this.scaffoldKey});
 
   @override
   State<MeetingView> createState() => _MeetingViewState();
@@ -32,8 +33,42 @@ class _MeetingViewState extends State<MeetingView> {
     final meetings = calProvider.meetings;
     final isLoading = calProvider.isLoadingMeetings;
 
+    Widget topBar = Container(
+      height: kToolbarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        border: Border(bottom: BorderSide(color: AppColors.border(context))),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.menu, color: AppColors.adaptiveTextSecondary(context)),
+            onPressed: () => widget.scaffoldKey?.currentState?.openDrawer(),
+          ),
+          Expanded(
+            child: Text(
+              'Meetings',
+              style: GoogleFonts.roboto(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.adaptiveTextPrimary(context),
+              ),
+            ),
+          ),
+          if (calProvider.selectedCalendar != null)
+            IconButton(
+              icon: Icon(Icons.refresh_rounded,
+                  color: AppColors.adaptiveTextSecondary(context), size: 22),
+              onPressed: () => calProvider.loadMeetings(calProvider.selectedCalendar!.id),
+            ),
+        ],
+      ),
+    );
+
     return Column(
       children: [
+        topBar,
         _buildTabs(calProvider),
         Expanded(
           child: isLoading

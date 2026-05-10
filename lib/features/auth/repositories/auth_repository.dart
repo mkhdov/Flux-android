@@ -135,6 +135,71 @@ class AuthRepository {
     }
   }
 
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _api.post(kForgotPasswordEndpoint, data: {'email': email});
+    } on DioException {
+      throw Exception('Failed to send reset email. Please try again.');
+    }
+  }
+
+  Future<void> validateResetToken(String token) async {
+    try {
+      await _api.post(kValidateResetTokenEndpoint, data: {'token': token});
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String message = 'Invalid or expired token.';
+      if (data is Map) {
+        message = data['errors']?['error']?.toString() ??
+            data['message']?.toString() ??
+            message;
+      }
+      throw Exception(message);
+    }
+  }
+
+  Future<void> resetPassword(String token, String newPassword) async {
+    try {
+      await _api.post(kResetPasswordEndpoint, data: {
+        'token': token,
+        'newPassword': newPassword,
+      });
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String message = 'Failed to reset password. Please try again.';
+      if (data is Map) {
+        message = data['errors']?['error']?.toString() ??
+            data['message']?.toString() ??
+            message;
+      }
+      throw Exception(message);
+    }
+  }
+
+  Future<void> changePassword({
+    required String userId,
+    required String oldPassword,
+    required String currentPassword,
+    required String repeatedPassword,
+  }) async {
+    try {
+      await _api.put('/api/auth/change-password/$userId', data: {
+        'oldPassword': oldPassword,
+        'currentPassword': currentPassword,
+        'repeatedPassword': repeatedPassword,
+      });
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String message = 'Failed to change password.';
+      if (data is Map) {
+        message = data['errors']?['error']?.toString() ??
+            data['message']?.toString() ??
+            message;
+      }
+      throw Exception(message);
+    }
+  }
+
   Future<void> logout() async {
     await TokenStorage.clearTokens();
     final prefs = await SharedPreferences.getInstance();

@@ -9,8 +9,13 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
+  static void Function(String? eventId)? onNotificationTap;
+
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  static const int maxPending = 50;
+  static const Duration futureWindow = Duration(hours: 24);
 
   Future<void> init() async {
     tz.initializeTimeZones();
@@ -40,8 +45,8 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.initialize(
       settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse notificationResponse) {
-        // Handle notification tapped logic here
         debugPrint('Notification clicked: ${notificationResponse.payload}');
+        onNotificationTap?.call(notificationResponse.payload);
       },
     );
   }
@@ -75,28 +80,44 @@ class NotificationService {
     }
   }
 
-  Future<void> scheduleEventReminder({
+  /// One-shot local notification.
+  /// Returns true if scheduled, false if skipped (past, beyond 24h window, or cap reached).
+  Future<bool> scheduleEventReminder({
     required String eventId,
     required String eventTitle,
     required DateTime eventStartTime,
     int reminderMinutesBefore = 15,
   }) async {
-    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(
-      eventStartTime.subtract(Duration(minutes: reminderMinutesBefore)),
-      tz.local,
-    );
+    final scheduledDate =
+        eventStartTime.subtract(Duration(minutes: reminderMinutesBefore));
+    final now = DateTime.now();
 
-    // If the scheduled date is in the past, don't schedule
-    if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
-      debugPrint('Cannot schedule notification in the past for event: $eventTitle');
-      return;
+    if (scheduledDate.isBefore(now)) {
+      debugPrint('Skipping past notification for event: $eventTitle');
+      return false;
     }
 
+    if (scheduledDate.isAfter(now.add(futureWindow))) {
+      debugPrint(
+          'Skipping notification for $eventTitle (beyond 24h window)');
+      return false;
+    }
+
+    final pendingCount = await pendingNotificationCount();
+    if (pendingCount >= maxPending) {
+      debugPrint(
+          'Max pending notifications ($maxPending) reached. Skipping $eventTitle');
+      return false;
+    }
+
+    final tz.TZDateTime tzScheduled = tz.TZDateTime.from(scheduledDate, tz.local);
     final int notificationId = eventId.hashCode;
 
-    // Motivational natural language body
-    final String body =
-        "Hey there! Your event '$eventTitle' is starting in $reminderMinutesBefore minutes. You've got this! Get ready to shine 🌟";
+    const String bodyTemplate =
+        "Hey there! Your event '{title}' is starting in {mins} minutes. You've got this! Get ready to shine";
+    final String body = bodyTemplate
+        .replaceAll('{title}', eventTitle)
+        .replaceAll('{mins}', reminderMinutesBefore.toString());
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
@@ -115,20 +136,36 @@ class NotificationService {
 
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id: notificationId,
-      title: '📅 Upcoming Event Reminder!',
+      title: 'Upcoming Event Reminder',
       body: body,
-      scheduledDate: scheduledDate,
+      scheduledDate: tzScheduled,
       notificationDetails: platformChannelSpecifics,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
       payload: eventId,
     );
-    
-    debugPrint('Scheduled notification for $eventTitle at $scheduledDate');
+
+    debugPrint(
+        'Scheduled one-shot notification for $eventTitle at $scheduledDate');
+    return true;
   }
 
   Future<void> cancelReminder(String eventId) async {
     await flutterLocalNotificationsPlugin.cancel(id: eventId.hashCode);
-    debugPrint('Cancelled notification for event: $eventId');
+  }
+
+  Future<int> pendingNotificationCount() async {
+    try {
+      final pending =
+          await flutterLocalNotificationsPlugin.pendingNotificationRequests();
+      return pending.length;
+    } catch (e) {
+      debugPrint('Failed to get pending count: $e');
+      return 0;
+    }
+  }
+
+  Future<void> cancelAll() async {
+    await flutterLocalNotificationsPlugin.cancelAll();
+    debugPrint('Cancelled all local notifications');
   }
 }

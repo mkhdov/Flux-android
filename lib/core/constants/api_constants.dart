@@ -1,14 +1,21 @@
-// API base URL — matches https://api.flux-cal.com/ from web .env
-const String kBaseUrl = 'http://192.168.1.17';
+// API base URL. Override for local runs with:
+// --dart-define=API_BASE_URL=https://192.168.1.13
+const String kBaseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'https://192.168.1.13',
+);
 
 // Web Client ID for Google Auth (obtained from Google Cloud Console as Web Application Client ID)
-const String kGoogleWebClientId = 'YOUR_GOOGLE_WEB_CLIENT_ID';
+const String kGoogleWebClientId = '916357634266-l9qe40n10k4e5vanvp0n3n70edi51khp.apps.googleusercontent.com';
 
 // Auth endpoints
 const String kLoginEndpoint = '/api/auth/login';
 const String kSignupEndpoint = '/api/auth/signup';
 const String kMeEndpoint = '/api/auth/me';
 const String kResendVerificationEndpoint = '/api/auth/resend-verification';
+const String kForgotPasswordEndpoint = '/api/auth/forgot-password';
+const String kValidateResetTokenEndpoint = '/api/auth/validate-reset-token';
+const String kResetPasswordEndpoint = '/api/auth/reset-password';
 
 // User endpoints
 String userEmailByIdEndpoint(String userId) => '/users/$userId/email';
@@ -21,6 +28,7 @@ const String kPrimaryCalendarEndpoint = '/calendars/user/primary';
 // Event endpoints
 const String kEventsEndpoint = '/events';
 const String kEventsByCalendarEndpoint = '/events/calendar';
+const String kGoogleCalendarSyncEndpoint = '/events/sync/google';
 
 // Task endpoints
 const String kTasksEndpoint = '/tasks';
@@ -37,6 +45,7 @@ const String kLocationEndpoint = '/event/location';
 
 // Reminder endpoints
 const String kRemindersEndpoint = '/api/reminders';
+const String kDeviceTokenEndpoint = '/api/devices/token';
 
 // Storage keys
 const String kAccessTokenKey = 'access_token';

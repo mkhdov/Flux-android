@@ -35,11 +35,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _initialized = true;
     final auth = context.read<AuthProvider>();
     final calendar = context.read<CalendarProvider>();
-    
+
     if (auth.user != null) {
       await calendar.loadCalendars(auth.user!.id);
       if (calendar.selectedCalendar != null) {
-        await calendar.loadEvents(calendar.selectedCalendar!.id);
+        if (calendar.viewMode == CalendarViewMode.month) {
+          await calendar.loadEventsForMonth(calendar.selectedCalendar!.id, calendar.currentMonth);
+        } else {
+          await calendar.loadEvents(calendar.selectedCalendar!.id);
+        }
       }
     }
   }
@@ -50,89 +54,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppColors.background(context),
       drawer: const CalendarDrawer(),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1C1C1E),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: AppColors.textSecondary),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        title: _buildTitle(calendarProvider),
-        actions: [
-          // Refresh button (not on settings tab)
-          if (calendarProvider.selectedCalendar != null && _currentIndex != 3)
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary, size: 22),
-              onPressed: () {
-                if (_currentIndex == 0 && calendarProvider.selectedCalendar != null) {
-                  calendarProvider.loadEvents(calendarProvider.selectedCalendar!.id);
-                } else if (_currentIndex == 1 && calendarProvider.selectedCalendar != null) {
-                  context.read<TaskProvider>().fetchTasks(calendarProvider.selectedCalendar!.id);
-                } else if (_currentIndex == 2 && calendarProvider.selectedCalendar != null) {
-                  calendarProvider.loadMeetings(calendarProvider.selectedCalendar!.id);
-                }
-              },
-            ),
-          // Today button (calendar view)
-          if (_currentIndex == 0) ...[
-            TextButton(
-              onPressed: calendarProvider.goToToday,
-              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-              child: Text('Today', style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
-            ),
-          ],
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          SizedBox.expand(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: const [
-                CalendarView(),
-                TaskView(),
-                MeetingView(),
-                SettingsScreen(),
-              ],
-            ),
-          ),
-          if (calendarProvider.isMiniCalendarVisible && _currentIndex == 0)
-            // Tap-outside-to-close barrier behind the mini calendar.
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => calendarProvider.setMiniCalendarVisible(false),
-                child: const SizedBox.expand(),
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            SizedBox.expand(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  CalendarView(scaffoldKey: _scaffoldKey),
+                  TaskView(scaffoldKey: _scaffoldKey),
+                  MeetingView(scaffoldKey: _scaffoldKey),
+                  SettingsScreen(scaffoldKey: _scaffoldKey),
+                ],
               ),
             ),
-          if (calendarProvider.isMiniCalendarVisible && _currentIndex == 0)
-            Positioned(
-              top: 0,
-              left: 12,
-              right: 12,
-              child: Container(
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
+            if (calendarProvider.isMiniCalendarVisible && _currentIndex == 0)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => calendarProvider.setMiniCalendarVisible(false),
+                  child: const SizedBox.expand(),
                 ),
-                child: MiniCalendar(provider: calendarProvider),
               ),
-            ),
-        ],
+            if (calendarProvider.isMiniCalendarVisible && _currentIndex == 0)
+              Positioned(
+                top: kToolbarHeight,
+                left: 12,
+                right: 12,
+                child: Container(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: MiniCalendar(provider: calendarProvider),
+                ),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1C1C1E),
-          border: Border(top: BorderSide(color: Color(0xFF2D2D2D))),
+        decoration: BoxDecoration(
+          color: AppColors.card(context),
+          border: Border(top: BorderSide(color: AppColors.border(context))),
         ),
         child: SafeArea(
           child: Row(
@@ -152,7 +124,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () {
                   setState(() => _currentIndex = 1);
                   if (calendarProvider.selectedCalendar != null) {
-                    context.read<TaskProvider>().fetchTasks(calendarProvider.selectedCalendar!.id);
+                    context
+                        .read<TaskProvider>()
+                        .fetchTasks(calendarProvider.selectedCalendar!.id);
                   }
                 },
               ),
@@ -164,7 +138,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () {
                   setState(() => _currentIndex = 2);
                   if (calendarProvider.selectedCalendar != null) {
-                    calendarProvider.loadMeetings(calendarProvider.selectedCalendar!.id);
+                    calendarProvider
+                        .loadMeetings(calendarProvider.selectedCalendar!.id);
                   }
                 },
               ),
@@ -180,84 +155,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildTitle(CalendarProvider calendarProvider) {
-    if (_currentIndex == 0) {
-      return GestureDetector(
-        onTap: calendarProvider.toggleMiniCalendar,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _getMonthYear(calendarProvider.currentMonth),
-                    style: GoogleFonts.roboto(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    calendarProvider.isMiniCalendarVisible ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                    size: 18,
-                    color: AppColors.textMuted,
-                  ),
-                ],
-              ),
-              if (calendarProvider.selectedCalendar != null)
-                Text(
-                  calendarProvider.selectedCalendar!.title,
-                  style: GoogleFonts.roboto(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (_currentIndex == 2) {
-      return Text(
-        'Meetings',
-        style: GoogleFonts.roboto(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-      );
-    }
-    if (_currentIndex == 3) {
-      return Text(
-        'Settings',
-        style: GoogleFonts.roboto(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-      );
-    }
-    return Text(
-      'Tasks',
-      style: GoogleFonts.roboto(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      ),
-    );
-  }
-
-  String _getMonthYear(DateTime dt) {
-    const months = ['January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'];
-    return '${months[dt.month - 1]} ${dt.year}';
   }
 }
 
@@ -288,7 +185,9 @@ class _NavItem extends StatelessWidget {
             children: [
               Icon(
                 isActive ? activeIcon : icon,
-                color: isActive ? AppColors.primary : AppColors.textMuted,
+                color: isActive
+                    ? AppColors.primary
+                    : AppColors.adaptiveTextMuted(context),
                 size: 24,
               ),
               const SizedBox(height: 4),
@@ -297,7 +196,9 @@ class _NavItem extends StatelessWidget {
                 style: GoogleFonts.roboto(
                   fontSize: 11,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                  color: isActive ? AppColors.primary : AppColors.textMuted,
+                  color: isActive
+                      ? AppColors.primary
+                      : AppColors.adaptiveTextMuted(context),
                 ),
               ),
             ],

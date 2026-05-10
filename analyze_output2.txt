@@ -1,0 +1,18 @@
+Analyzing settings_screen.dart...
+
+  error - settings_screen.dart:27:38 - The class 'GoogleSignIn' doesn't have an unnamed constructor. Try using one of the named constructors defined in 'GoogleSignIn'. - new_with_undefined_constructor_default
+warning - settings_screen.dart:1:8 - Unused import: 'dart:convert'. Try removing the import directive. - unused_import
+warning - settings_screen.dart:13:8 - Unused import: 'package:dio/dio.dart'. Try removing the import directive. - unused_import
+warning - settings_screen.dart:27:22 - The value of the field '_googleSignIn' isn't used. Try removing the field, or using it. - unused_field
+warning - settings_screen.dart:314:19 - The operand can't be 'null', so the condition is always 'false'. Try removing the condition, an enclosing condition, or the whole conditional statement. - unnecessary_null_comparison
+warning - settings_screen.dart:677:10 - A value for optional parameter 'keyboardType' isn't ever given. Try removing the unused parameter. - unused_element_parameter
+   info - settings_screen.dart:71:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:94:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:127:19 - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - settings_screen.dart:209:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:282:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:347:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:347:29 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:908:30 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+
+14 issues found.

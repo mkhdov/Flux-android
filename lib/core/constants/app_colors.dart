@@ -12,13 +12,28 @@ class AppColors {
   static const Color darkCard = Color(0xFF1C1C1E);
   static const Color darkCardAlt = Color(0xFF2A2A2C);
   static const Color darkBorder = Color(0xFF2D2D2D);
-  static const Color darkBorderLight = Color(0x1AFFFFFF); // rgba(255,255,255,0.1)
+  static const Color darkBorderLight =
+      Color(0x1AFFFFFF); // rgba(255,255,255,0.1)
+
+  // Background colors (light theme)
+  static const Color lightBg = Color(0xFFF6F2EC);
+  static const Color lightSurface = Color(0xFFFFF7EE);
+  static const Color lightCard = Color(0xFFFFFFFF);
+  static const Color lightCardAlt = Color(0xFFF2ECE4);
+  static const Color lightBorder = Color(0xFFEADFD2);
+  static const Color lightBorderLight = Color(0x1F3D3129);
 
   // Text colors
   static const Color textPrimary = Color(0xFFE8E8E8);
   static const Color textSecondary = Color(0xFF9CA3AF);
   static const Color textMuted = Color(0xFF6B7280);
   static const Color textDisabled = Color(0xFF4B5563);
+
+  // Text colors (light theme)
+  static const Color lightTextPrimary = Color(0xFF231F20);
+  static const Color lightTextSecondary = Color(0xFF5F5A55);
+  static const Color lightTextMuted = Color(0xFF847A70);
+  static const Color lightTextDisabled = Color(0xFFAA9E93);
 
   // Status colors
   static const Color success = Color(0xFF22C55E);
@@ -56,4 +71,24 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  static Color background(BuildContext context) =>
+      isDark(context) ? darkBg : lightBg;
+  static Color card(BuildContext context) =>
+      isDark(context) ? darkCard : lightCard;
+  static Color cardAlt(BuildContext context) =>
+      isDark(context) ? darkCardAlt : lightCardAlt;
+  static Color border(BuildContext context) =>
+      isDark(context) ? darkBorder : lightBorder;
+  static Color adaptiveTextPrimary(BuildContext context) =>
+      isDark(context) ? textPrimary : lightTextPrimary;
+  static Color adaptiveTextSecondary(BuildContext context) =>
+      isDark(context) ? textSecondary : lightTextSecondary;
+  static Color adaptiveTextMuted(BuildContext context) =>
+      isDark(context) ? textMuted : lightTextMuted;
+  static Color adaptiveTextDisabled(BuildContext context) =>
+      isDark(context) ? textDisabled : lightTextDisabled;
 }

@@ -1,0 +1,16 @@
+Analyzing settings_screen.dart...
+
+  error - settings_screen.dart:295:41 - The class 'GoogleSignIn' doesn't have an unnamed constructor. Try using one of the named constructors defined in 'GoogleSignIn'. - new_with_undefined_constructor_default
+  error - settings_screen.dart:305:63 - The method 'signIn' isn't defined for the type 'GoogleSignIn'. Try correcting the name to the name of an existing method, or defining a method named 'signIn'. - undefined_method
+  error - settings_screen.dart:312:38 - The getter 'serverAuthCode' isn't defined for the type 'GoogleSignInAccount'. Try importing the library that defines 'serverAuthCode', correcting the name to the name of an existing getter, or defining a getter or field named 'serverAuthCode'. - undefined_getter
+warning - settings_screen.dart:1:8 - Unused import: 'dart:convert'. Try removing the import directive. - unused_import
+warning - settings_screen.dart:13:8 - Unused import: 'package:dio/dio.dart'. Try removing the import directive. - unused_import
+warning - settings_screen.dart:663:10 - A value for optional parameter 'keyboardType' isn't ever given. Try removing the unused parameter. - unused_element_parameter
+   info - settings_screen.dart:67:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:90:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:123:19 - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - settings_screen.dart:205:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:278:11 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - settings_screen.dart:894:30 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+
+12 issues found.

@@ -147,16 +147,7 @@ class _EventDetailSheetState extends State<EventDetailSheet>
     // Instead of SnackBar, we show a MaterialBanner or just standard SnackBar with countdown.
     // ScaffoldMessenger handles SnackBar duration. For spinner, we show SnackBar.
     final controller = ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(
-        children: [
-          Expanded(child: Text('Deleted "$eventTitle"', style: GoogleFonts.spaceGrotesk(color: _DS.t1))),
-          const SizedBox(
-            width: 14, height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _DS.t3),
-          ),
-          const SizedBox(width: 12),
-        ],
-      ),
+      content: Text('Deleted "$eventTitle"', style: GoogleFonts.spaceGrotesk(color: _DS.t1)),
       backgroundColor: _DS.bg2,
       duration: const Duration(seconds: 5),
       action: SnackBarAction(
@@ -440,12 +431,42 @@ class _EventDetailSheetState extends State<EventDetailSheet>
     if (url == null || url.isEmpty) return;
     String normalized = url.trim();
     final raw = Uri.tryParse(normalized);
-    if (raw != null && (raw.scheme.isEmpty || !(raw.scheme == 'http' || raw.scheme == 'https'))) {
+    if (raw != null && raw.scheme.isEmpty && !normalized.contains('://')) {
       normalized = 'https://$normalized';
+    } else if (raw != null && raw.scheme.isNotEmpty && raw.scheme != 'http' && raw.scheme != 'https' && raw.scheme != 'zoomus') {
+      if (!normalized.contains('://')) {
+        normalized = 'https://$normalized';
+      }
     }
+    
     final uri = Uri.tryParse(normalized);
     if (uri != null) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      try {
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched && uri.scheme == 'zoomus') {
+          final confno = uri.queryParameters['confno'];
+          final pwd = uri.queryParameters['pwd'];
+          if (confno != null) {
+            String webUrl = 'https://zoom.us/j/$confno';
+            if (pwd != null && pwd.isNotEmpty) webUrl += '?pwd=$pwd';
+            await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
+          } else {
+            await launchUrl(Uri.parse('https://zoom.us/join'), mode: LaunchMode.externalApplication);
+          }
+        }
+      } catch (e) {
+        if (uri.scheme == 'zoomus') {
+          final confno = uri.queryParameters['confno'];
+          final pwd = uri.queryParameters['pwd'];
+          if (confno != null) {
+            String webUrl = 'https://zoom.us/j/$confno';
+            if (pwd != null && pwd.isNotEmpty) webUrl += '?pwd=$pwd';
+            await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
+          } else {
+            await launchUrl(Uri.parse('https://zoom.us/join'), mode: LaunchMode.externalApplication);
+          }
+        }
+      }
     }
   }
 
@@ -1416,29 +1437,59 @@ class _ConferenceCard extends StatelessWidget {
     final isMeet = conference.isGoogleMeet;
     final raw = conference.meetingLink?.trim() ?? '';
     final code = conference.meetingCode?.trim() ?? '';
+    final pwd = conference.conferencePassword?.trim() ?? '';
+
+    if (!isMeet) {
+      String? confno;
+      String? pass = pwd.isNotEmpty ? pwd : null;
+
+      if (code.isNotEmpty) {
+        confno = code.replaceAll(RegExp(r'[^0-9]'), '');
+      }
+
+      if (confno == null || confno.isEmpty) {
+        if (raw.isNotEmpty) {
+          final uri = Uri.tryParse(raw.startsWith('http') ? raw : 'https://$raw');
+          if (uri != null) {
+            if (uri.pathSegments.contains('j')) {
+              final idx = uri.pathSegments.indexOf('j');
+              if (idx + 1 < uri.pathSegments.length) {
+                confno = uri.pathSegments[idx + 1];
+              }
+            } else if (uri.pathSegments.isNotEmpty && RegExp(r'^\d+$').hasMatch(uri.pathSegments.last)) {
+              confno = uri.pathSegments.last;
+            }
+            pass ??= uri.queryParameters['pwd'];
+          }
+        }
+      }
+
+      if (confno != null && confno.isNotEmpty) {
+        String zoomUri = 'zoomus://zoom.us/join?action=join&confno=$confno';
+        if (pass != null && pass.isNotEmpty) {
+          zoomUri += '&pwd=$pass';
+        }
+        return zoomUri;
+      }
+      return 'zoomus://zoom.us/join';
+    }
 
     if (raw.isNotEmpty) {
       final lower = raw.toLowerCase();
       if (lower.startsWith('http://') || lower.startsWith('https://')) {
         return raw;
       }
-      if (lower.contains('meet.google.com') || lower.contains('zoom.us')) {
+      if (lower.contains('meet.google.com')) {
         return 'https://$raw';
       }
     }
 
     if (code.isNotEmpty) {
-      if (isMeet) {
-        final meetCode = code.replaceAll(' ', '');
-        return 'https://meet.google.com/$meetCode';
-      }
-      final zoomCode = code.replaceAll(RegExp(r'[^0-9]'), '');
-      if (zoomCode.isNotEmpty) {
-        return 'https://zoom.us/j/$zoomCode';
-      }
+      final meetCode = code.replaceAll(' ', '');
+      return 'https://meet.google.com/$meetCode';
     }
 
-    return isMeet ? 'https://meet.google.com' : 'https://zoom.us/join';
+    return 'https://meet.google.com';
   }
 
   @override

@@ -51,6 +51,7 @@ class DailyScheduleGrid extends StatefulWidget {
   final DateTime date;
   final List<EventModel> events;
   final CalendarProvider provider;
+  final GlobalKey<ScaffoldState>? scaffoldKey;
 
   /// Called when user finishes dragging an event to a new time
   final void Function(EventModel event, int newStartMinutes)? onEventMoved;
@@ -66,6 +67,7 @@ class DailyScheduleGrid extends StatefulWidget {
     required this.date,
     required this.events,
     required this.provider,
+    this.scaffoldKey,
     this.onEventMoved,
     this.onEventResized,
     this.onDraftConfirmed,
@@ -279,7 +281,6 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
     final layout   = _computeLayout(timed);
     return Column(
       children: [
-        _buildHeader(isToday),
         if (allDay.isNotEmpty) _buildAllDayStrip(allDay),
         Expanded(
           child: Stack(
@@ -294,38 +295,6 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildHeader(bool isToday) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      decoration: const BoxDecoration(color: Color(0xFF1C1C1E), border: Border(bottom: BorderSide(color: Color(0xFF2D2D2D)))),
-      child: Row(
-        children: [
-          Text(DateFormat('EEEE').format(widget.date), style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: isToday ? AppColors.primary : const Color(0xFF64748B))),
-          const SizedBox(width: 8),
-          Container(
-            width: 28, height: 28,
-            decoration: BoxDecoration(color: isToday ? AppColors.primary : Colors.transparent, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: Text('${widget.date.day}', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700, color: isToday ? Colors.white : const Color(0xFFE2E8F0))),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 26),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => CreateEventSheet(selectedDate: widget.date),
-              );
-            },
-          ),
-          IconButton(icon: const Icon(Icons.calendar_month, color: AppColors.textMuted, size: 20), onPressed: () => widget.provider.toggleMiniCalendar()),
-        ],
-      ),
     );
   }
 
@@ -415,7 +384,7 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
             final gridW = constraints.maxWidth;
             return SingleChildScrollView(
               controller: _scroll,
-              physics: const ClampingScrollPhysics(),
+              physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
               child: SizedBox(
                 width: gridW,
                 height: _totalHours * _hourH,

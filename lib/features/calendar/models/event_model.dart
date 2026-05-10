@@ -78,8 +78,8 @@ class ConferenceModel {
       id: json['id'] as String?,
       type: json['type'] as String?,
       platformName: json['platformName'] as String?,
-      meetingLink: json['meetingLink'] as String?,
-      meetingCode: json['meetingCode'] as String?,
+      meetingLink: (json['meetingLink'] ?? json['conferenceLink']) as String?,
+      meetingCode: (json['meetingCode'] ?? json['zoomMeetingId'])?.toString(),
       phoneNumber: json['phoneNumber'] as String?,
       pin: json['pin'] as String?,
       conferencePassword: json['conferencePassword'] as String?,
@@ -274,17 +274,36 @@ class EventModel {
     final nestedCal = json['calendar'];
     final calId = json['calendarId'] as String?;
     final fromNested = nestedCal is Map<String, dynamic> ? nestedCal['id']?.toString() : null;
+
+    String? parseInstant(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      if (value is Map) {
+        try {
+          final seconds = value['epochSecond'];
+          final nanos = value['nano'] as int? ?? 0;
+          if (seconds != null) {
+            return DateTime.fromMillisecondsSinceEpoch(
+              (seconds as int) * 1000 + nanos ~/ 1000000,
+              isUtc: true,
+            ).toIso8601String();
+          }
+        } catch (_) {}
+      }
+      return value.toString();
+    }
+
     return EventModel(
       id: json['id'] as String? ?? '',
-      calendarId: calId ?? fromNested ?? '',
+      calendarId: calId ?? fromNested ?? json['calendarId'] as String? ?? '',
       title: _parseTitle(json),
       description: json['description'] as String?,
       type: json['type']?.toString(),
       status: json['status']?.toString(),
       colorHex: _parseColorHex(json),
       allDay: json['allDay'] as bool? ?? false,
-      startTime: json['startTime'] as String?,
-      endTime: json['endTime'] as String?,
+      startTime: parseInstant(json['startTime'] ?? json['start']),
+      endTime: parseInstant(json['endTime'] ?? json['end']),
       syncStatus: json['syncStatus'] as String?,
       location: json['location'] is Map ? LocationModel.fromJson(json['location'] as Map<String, dynamic>) : null,
       conference: json['conference'] is Map ? ConferenceModel.fromJson(json['conference'] as Map<String, dynamic>) : null,

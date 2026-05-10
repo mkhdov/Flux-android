@@ -31,6 +31,10 @@ class AuthProvider extends ChangeNotifier {
         if (user != null) {
           _user = user;
           _status = AuthStatus.authenticated;
+          
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_user_id', user.id);
+          await FcmService.instance.registerCurrentToken(userId: user.id);
         } else {
           _status = AuthStatus.unauthenticated;
         }
@@ -56,6 +60,7 @@ class AuthProvider extends ChangeNotifier {
       if (user != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_user_id', user.id);
+        await FcmService.instance.registerCurrentToken(userId: user.id);
       }
       notifyListeners();
       return true;

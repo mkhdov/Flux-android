@@ -10,33 +10,76 @@ import '../../tasks/widgets/task_detail_sheet.dart';
 import '../../../core/constants/app_colors.dart';
 
 class TaskView extends StatelessWidget {
-  const TaskView({super.key});
+  final GlobalKey<ScaffoldState>? scaffoldKey;
+  const TaskView({super.key, this.scaffoldKey});
 
   @override
   Widget build(BuildContext context) {
     final calProvider = context.watch<CalendarProvider>();
     final taskProvider = context.watch<TaskProvider>();
 
-    if (calProvider.selectedCalendar == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.calendar_today_outlined, color: AppColors.textMuted, size: 48),
-              const SizedBox(height: 16),
-              Text('No calendar selected', style: GoogleFonts.roboto(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Text('Select a calendar from the menu to view its tasks.', textAlign: TextAlign.center, style: GoogleFonts.roboto(color: AppColors.textMuted, fontSize: 14)),
-            ],
+    Widget topBar = Container(
+      height: kToolbarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        border: Border(bottom: BorderSide(color: AppColors.border(context))),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.menu, color: AppColors.adaptiveTextSecondary(context)),
+            onPressed: () => scaffoldKey?.currentState?.openDrawer(),
           ),
-        ),
+          Expanded(
+            child: Text(
+              'Tasks',
+              style: GoogleFonts.roboto(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.adaptiveTextPrimary(context),
+              ),
+            ),
+          ),
+          if (calProvider.selectedCalendar != null)
+            IconButton(
+              icon: Icon(Icons.refresh_rounded,
+                  color: AppColors.adaptiveTextSecondary(context), size: 22),
+              onPressed: () => context.read<TaskProvider>()
+                  .fetchTasks(calProvider.selectedCalendar!.id),
+            ),
+        ],
+      ),
+    );
+
+    if (calProvider.selectedCalendar == null) {
+      return Column(
+        children: [
+          topBar,
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.calendar_today_outlined, color: AppColors.textMuted, size: 48),
+                    const SizedBox(height: 16),
+                    Text('No calendar selected', style: GoogleFonts.roboto(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Text('Select a calendar from the menu to view its tasks.', textAlign: TextAlign.center, style: GoogleFonts.roboto(color: AppColors.textMuted, fontSize: 14)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
     return Column(
       children: [
+        topBar,
         // Toolbar
         _Toolbar(provider: taskProvider),
         // Status tabs

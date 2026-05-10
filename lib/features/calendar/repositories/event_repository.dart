@@ -58,6 +58,29 @@ class EventRepository {
     return [];
   }
 
+  Future<List<EventModel>> getEventsByMonth({
+    required String calendarId,
+    required int year,
+    required int month,
+  }) async {
+    final response = await _api.get(
+      '$kEventsEndpoint/month',
+      queryParameters: {
+        'calendarId': calendarId,
+        'year': year,
+        'month': month,
+      },
+    );
+    final data = response.data;
+    final list = data is List
+        ? data
+        : data is Map<String, dynamic> && data['data'] is List
+            ? data['data'] as List
+            : const [];
+
+    return list.whereType<Map<String, dynamic>>().map(EventModel.fromJson).toList();
+  }
+
   Future<List<EventModel>> getMeetingsByCalendar(String calendarId, {String filter = 'today'}) async {
     final response = await _api.get(
       '$kEventsByCalendarEndpoint/$calendarId/meetings',
@@ -68,6 +91,10 @@ class EventRepository {
       return data.map((e) => EventModel.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
+  }
+
+  Future<void> syncGoogleCalendar(String calendarId) async {
+    await _api.post('$kGoogleCalendarSyncEndpoint/$calendarId');
   }
 
   Future<EventModel> getEventById(String id) async {
@@ -204,7 +231,7 @@ class EventRepository {
   }
 
   Future<EventModel> addZoom(String eventId) async {
-    final response = await _api.post('$kConferenceEndpoint/$eventId/add-zoom');
+    final response = await _api.post('$kEventsEndpoint/add-zoom/$eventId');
     final raw = response.data;
     if (raw is Map<String, dynamic>) {
       return EventModel.fromJson(raw);
@@ -218,7 +245,7 @@ class EventRepository {
 
   Future<EventModel> removeConference(String eventId, String type) async {
     final endpoint = type == 'zoom'
-        ? '$kConferenceEndpoint/$eventId/remove-zoom'
+        ? '$kEventsEndpoint/remove-zoom/$eventId'
         : '$kConferenceEndpoint/$eventId/remove-meet';
     final response = await _api.delete(endpoint);
     final raw = response.data;

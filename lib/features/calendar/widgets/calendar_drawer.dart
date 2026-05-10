@@ -22,50 +22,6 @@ class CalendarDrawer extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFF2D2D2D))),
-              ),
-              child: Row(
-                children: [
-                  // Logo
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Flux',
-                          style: GoogleFonts.roboto(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          'Calendar',
-                          style: GoogleFonts.roboto(
-                            fontSize: 12,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
             // Calendars section
             Expanded(
@@ -107,45 +63,21 @@ class CalendarDrawer extends StatelessWidget {
                             Navigator.pop(context);
                           },
                         ),
+                        _ViewModeItem(
+                          icon: Icons.calendar_month_outlined,
+                          label: 'Monthly',
+                          isSelected: calendarProvider.viewMode == CalendarViewMode.month,
+                          onTap: () {
+                            calendarProvider.setViewMode(CalendarViewMode.month);
+                            Navigator.pop(context);
+                          },
+                        ),
                       ],
                     ),
                   ),
                   const Divider(color: Color(0xFF2D2D2D), height: 1),
                   const SizedBox(height: 8),
-                  // Section header
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'My Calendars',
-                          style: GoogleFonts.roboto(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textMuted,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => CreateCalendarSheet(userId: user?.id ?? ''),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(Icons.add, color: AppColors.primary, size: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+
 
                   if (calendarProvider.isLoadingCalendars)
                     const Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -170,6 +102,12 @@ class CalendarDrawer extends StatelessWidget {
                           calendar: cal,
                           userId: user?.id ?? '',
                         ),
+                      ),
+                      onAdd: () => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => CreateCalendarSheet(userId: user?.id ?? ''),
                       ),
                     ),
                 ],
@@ -355,4 +293,3 @@ class _ViewModeItem extends StatelessWidget {
     );
   }
 }
-

@@ -9,9 +9,11 @@ import '../../calendar/widgets/event_detail_sheet.dart';
 import '../../calendar/widgets/event_ui_helpers.dart';
 import '../../../core/constants/app_colors.dart';
 import 'daily_schedule_grid.dart';
+import 'monthly_calendar_view.dart';
 
 class CalendarView extends StatefulWidget {
-  const CalendarView({super.key});
+  final GlobalKey<ScaffoldState>? scaffoldKey;
+  const CalendarView({super.key, this.scaffoldKey});
 
   @override
   State<CalendarView> createState() => _CalendarViewState();
@@ -45,6 +47,27 @@ class _CalendarViewState extends State<CalendarView> {
     _isSyncing = false;
   }
 
+  Future<void> _manualSync(CalendarProvider provider) async {
+    final ok = await provider.syncSelectedGoogleCalendar();
+    if (!mounted || ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(provider.eventError ?? 'Failed to refresh calendar.'),
+        backgroundColor: AppColors.error,
+      ),
+    );
+  }
+
+  Widget _withPullToSync(Widget child, CalendarProvider provider) {
+    return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: const Color(0xFF1C1C1E),
+      notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
+      onRefresh: () => _manualSync(provider),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CalendarProvider>();
@@ -66,10 +89,32 @@ class _CalendarViewState extends State<CalendarView> {
       }
     }
 
-    return provider.viewMode == CalendarViewMode.schedule
-        ? _EventsList(key: const ValueKey('schedule'), provider: provider)
-        : PageView.builder(
-            key: const ValueKey('daily-swipper'),
+    if (provider.viewMode == CalendarViewMode.schedule) {
+      return _withPullToSync(
+        _EventsList(key: const ValueKey('schedule'), provider: provider,
+            scaffoldKey: widget.scaffoldKey),
+        provider,
+      );
+    }
+
+    if (provider.viewMode == CalendarViewMode.month) {
+      return _withPullToSync(
+        MonthlyCalendarView(
+          key: const ValueKey('month'),
+          provider: provider,
+          scaffoldKey: widget.scaffoldKey,
+        ),
+        provider,
+      );
+    }
+
+    return _withPullToSync(
+      Column(
+        children: [
+          _buildDailyTopBar(provider, context),
+          Expanded(
+            child: PageView.builder(
+              key: const ValueKey('daily-swipper'),
               controller: _pageController,
               onPageChanged: (page) => _onPageChanged(page, provider),
               itemBuilder: (context, index) {
@@ -79,6 +124,7 @@ class _CalendarViewState extends State<CalendarView> {
                   date: date,
                   events: provider.getEventsForDate(date),
                   provider: provider,
+                  scaffoldKey: widget.scaffoldKey,
                   onEventMoved: (event, newStart) {
                     final evDate = event.startDateTime ?? date;
                     final newStartDt = DateTime(evDate.year, evDate.month, evDate.day).add(Duration(minutes: newStart));
@@ -120,6 +166,7 @@ class _CalendarViewState extends State<CalendarView> {
                     final created = await provider.createEvent(data: {
                       'title': title,
                       'colorHex': '#6366F1',
+                      'date': DateFormat('yyyy-MM-dd').format(startDt),
                       'startTime': startDt.toUtc().toIso8601String(),
                       'endTime': endDt.toUtc().toIso8601String(),
                       'allDay': false,
@@ -139,7 +186,85 @@ class _CalendarViewState extends State<CalendarView> {
                   },
                 );
               },
-          );
+            ),
+          ),
+        ],
+      ),
+      provider,
+    );
+  }
+
+  Widget _buildDailyTopBar(CalendarProvider provider, BuildContext context) {
+    final date = provider.selectedDate ?? DateTime.now();
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    
+    return Container(
+      padding: const EdgeInsets.fromLTRB(4, 0, 8, 0),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1C1C1E), 
+        border: Border(bottom: BorderSide(color: Color(0xFF2D2D2D)))
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.menu, color: Color(0xFF64748B)),
+            onPressed: () => widget.scaffoldKey?.currentState?.openDrawer(),
+          ),
+          GestureDetector(
+            onTap: () => provider.toggleMiniCalendar(),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(DateFormat('EEEE').format(date),
+                    style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600,
+                        color: isToday ? AppColors.primary : const Color(0xFF64748B))),
+                const SizedBox(width: 8),
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                      color: isToday ? AppColors.primary : Colors.transparent,
+                      shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: Text('${date.day}',
+                      style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700,
+                          color: isToday ? Colors.white : const Color(0xFFE2E8F0))),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  provider.isMiniCalendarVisible
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: const Color(0xFF64748B),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: provider.goToToday,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: Text('Today',
+                style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 26),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => CreateEventSheet(selectedDate: date),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -148,7 +273,8 @@ class _CalendarViewState extends State<CalendarView> {
 
 class _EventsList extends StatefulWidget {
   final CalendarProvider provider;
-  const _EventsList({super.key, required this.provider});
+  final GlobalKey<ScaffoldState>? scaffoldKey;
+  const _EventsList({super.key, required this.provider, this.scaffoldKey});
 
   @override
   State<_EventsList> createState() => _EventsListState();
@@ -192,8 +318,11 @@ class _EventsListState extends State<_EventsList> {
 
   Future<void> _loadMore({required bool isFuture}) async {
     setState(() {
-      if (isFuture) _isFutureLoading = true;
-      else _isPastLoading = true;
+      if (isFuture) {
+        _isFutureLoading = true;
+      } else {
+        _isPastLoading = true;
+      }
     });
     
     final selectedDate = widget.provider.selectedDate ?? DateTime.now();
@@ -223,84 +352,165 @@ class _EventsListState extends State<_EventsList> {
     });
   }
 
+  Widget _buildTopBar(BuildContext context) {
+    final provider = widget.provider;
+    final months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    final dt = provider.currentMonth;
+    final title = '${months[dt.month - 1]} ${dt.year}';
+    return Container(
+      height: kToolbarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        border: Border(bottom: BorderSide(color: AppColors.border(context))),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.menu, color: AppColors.adaptiveTextSecondary(context)),
+            onPressed: () => widget.scaffoldKey?.currentState?.openDrawer(),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: provider.toggleMiniCalendar,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.roboto(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.adaptiveTextPrimary(context),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    provider.isMiniCalendarVisible
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: AppColors.adaptiveTextMuted(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (provider.selectedCalendar != null)
+            IconButton(
+              icon: Icon(Icons.refresh_rounded,
+                  color: AppColors.adaptiveTextSecondary(context), size: 22),
+              onPressed: () => provider.loadEvents(provider.selectedCalendar!.id),
+            ),
+          TextButton(
+            onPressed: provider.goToToday,
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            child: Text('Today',
+                style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.provider.selectedCalendar == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.calendar_today_outlined, color: AppColors.textMuted, size: 40),
-            const SizedBox(height: 12),
-            Text('Select a calendar from the menu',
-                style: GoogleFonts.roboto(color: AppColors.textMuted, fontSize: 14)),
-          ],
-        ),
+      return Column(
+        children: [
+          _buildTopBar(context),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.calendar_today_outlined, color: AppColors.textMuted, size: 40),
+                  const SizedBox(height: 12),
+                  Text('Select a calendar from the menu',
+                      style: GoogleFonts.roboto(color: AppColors.textMuted, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
     // Show loading only on initial load
     if (widget.provider.isLoadingEvents && widget.provider.events.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return Column(
+        children: [
+          _buildTopBar(context),
+          const Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.primary))),
+        ],
+      );
     }
 
     final selectedDate = widget.provider.selectedDate ?? DateTime.now();
 
-    return CustomScrollView(
-      controller: _scrollController,
-      center: _centerKey,
-      slivers: [
-        // Past loading spinner
-        if (_isPastLoading)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-          ),
-        // Past events
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (ctx, index) {
-              // index 0 is 1 day before selectedDate, index 1 is 2 days before...
-              final date = selectedDate.subtract(Duration(days: index + 1));
-              return _DaySection(
-                date: date,
-                events: widget.provider.getEventsForDate(date),
-                isToday: false,
-                provider: widget.provider,
-              );
-            },
-            childCount: _pastWeeks * daysPerWeek,
+    return Column(
+      children: [
+        _buildTopBar(context),
+        Expanded(
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+            center: _centerKey,
+            slivers: [
+              // Past loading spinner
+              if (_isPastLoading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                ),
+              // Past events
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, index) {
+                    // index 0 is 1 day before selectedDate, index 1 is 2 days before...
+                    final date = selectedDate.subtract(Duration(days: index + 1));
+                    return _DaySection(
+                      date: date,
+                      events: widget.provider.getEventsForDate(date),
+                      isToday: false,
+                      provider: widget.provider,
+                    );
+                  },
+                  childCount: _pastWeeks * daysPerWeek,
+                ),
+              ),
+              // Today and future events
+              SliverList(
+                key: _centerKey,
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, index) {
+                    final date = selectedDate.add(Duration(days: index));
+                    final isToday = date.year == DateTime.now().year && 
+                                    date.month == DateTime.now().month && 
+                                    date.day == DateTime.now().day;
+                    return _DaySection(
+                      date: date,
+                      events: widget.provider.getEventsForDate(date),
+                      isToday: isToday,
+                      provider: widget.provider,
+                    );
+                  },
+                  childCount: _futureWeeks * daysPerWeek,
+                ),
+              ),
+              // Future loading spinner
+              if (_isFutureLoading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                ),
+            ],
           ),
         ),
-        // Today and future events
-        SliverList(
-          key: _centerKey,
-          delegate: SliverChildBuilderDelegate(
-            (ctx, index) {
-              final date = selectedDate.add(Duration(days: index));
-              final isToday = date.year == DateTime.now().year && 
-                              date.month == DateTime.now().month && 
-                              date.day == DateTime.now().day;
-              return _DaySection(
-                date: date,
-                events: widget.provider.getEventsForDate(date),
-                isToday: isToday,
-                provider: widget.provider,
-              );
-            },
-            childCount: _futureWeeks * daysPerWeek,
-          ),
-        ),
-        // Future loading spinner
-        if (_isFutureLoading)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-          ),
       ],
     );
   }
