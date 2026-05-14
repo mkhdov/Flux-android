@@ -138,7 +138,6 @@ class FcmService {
     }
 
     final titlePart = eventTitle.isNotEmpty ? eventTitle : 'Calendar Event';
-    final location = data['eventLocation'] ?? '';
     final wherePart = location.isNotEmpty ? ' • $location' : '';
     return '$titlePart — $when$wherePart';
   }

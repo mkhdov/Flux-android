@@ -656,7 +656,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _linkZoom(String userId) async {
-    final uri = Uri.parse('http://192.168.1.17:8083/zoom/connect/$userId');
+    final uri = Uri.parse('http://192.168.1.4:8083/zoom/connect/$userId');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
