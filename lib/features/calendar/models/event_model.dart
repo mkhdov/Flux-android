@@ -33,14 +33,14 @@ class LocationModel {
   }
 
   Map<String, dynamic> toJson() => {
-    if (placeName != null) 'placeName': placeName,
-    if (streetAddress != null) 'streetAddress': streetAddress,
-    if (city != null) 'city': city,
-    if (country != null) 'country': country,
-    if (buildingName != null) 'buildingName': buildingName,
-    if (floor != null) 'floor': floor,
-    if (room != null) 'room': room,
-  };
+        if (placeName != null) 'placeName': placeName,
+        if (streetAddress != null) 'streetAddress': streetAddress,
+        if (city != null) 'city': city,
+        if (country != null) 'country': country,
+        if (buildingName != null) 'buildingName': buildingName,
+        if (floor != null) 'floor': floor,
+        if (room != null) 'room': room,
+      };
 
   String get displayText {
     final parts = <String>[];
@@ -86,7 +86,8 @@ class ConferenceModel {
     );
   }
 
-  static String _norm(String? v) => (v ?? '').trim().toLowerCase().replaceAll('_', '').replaceAll('-', '');
+  static String _norm(String? v) =>
+      (v ?? '').trim().toLowerCase().replaceAll('_', '').replaceAll('-', '');
 
   bool get isGoogleMeet {
     final t = _norm(type);
@@ -127,13 +128,16 @@ class SubtaskModel {
   }
 
   Map<String, dynamic> toJson() => {
-    if (id != null) 'id': id,
-    'subtask': subtask,
-    'isDone': isDone,
-  };
+        if (id != null) 'id': id,
+        'subtask': subtask,
+        'isDone': isDone,
+      };
 
   SubtaskModel copyWith({bool? isDone, String? subtask}) {
-    return SubtaskModel(id: id, subtask: subtask ?? this.subtask, isDone: isDone ?? this.isDone);
+    return SubtaskModel(
+        id: id,
+        subtask: subtask ?? this.subtask,
+        isDone: isDone ?? this.isDone);
   }
 }
 
@@ -142,7 +146,8 @@ class NoteModel {
   final String content;
   final String createdAt;
 
-  const NoteModel({required this.id, required this.content, required this.createdAt});
+  const NoteModel(
+      {required this.id, required this.content, required this.createdAt});
 
   factory NoteModel.fromJson(Map<String, dynamic> json) {
     return NoteModel(
@@ -176,7 +181,8 @@ class MemberModel {
   }
 
   String get displayName => fullName?.isNotEmpty == true ? fullName! : email;
-  String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+  String get initial =>
+      displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
 }
 
 class AttachmentModel {
@@ -221,7 +227,7 @@ class EventModel {
   final String? colorHex;
   final bool allDay;
   final String? startTime; // ISO string
-  final String? endTime;   // ISO string
+  final String? endTime; // ISO string
   final String? syncStatus;
   final LocationModel? location;
   final ConferenceModel? conference;
@@ -231,6 +237,9 @@ class EventModel {
   final List<AttachmentModel> attachments;
   final String createdAt;
   final String updatedAt;
+  final bool virtual;
+  final bool isRecurring;
+  final String? recurringGroupId;
 
   const EventModel({
     required this.id,
@@ -252,11 +261,18 @@ class EventModel {
     required this.attachments,
     required this.createdAt,
     required this.updatedAt,
+    this.virtual = false,
+    this.isRecurring = false,
+    this.recurringGroupId,
   });
 
   /// Prefer API `title`; fall back to common alternate keys (e.g. Google-style `summary`).
   static String _parseTitle(Map<String, dynamic> json) {
-    final raw = json['title'] ?? json['summary'] ?? json['name'] ?? json['subject'] ?? json['eventTitle'];
+    final raw = json['title'] ??
+        json['summary'] ??
+        json['name'] ??
+        json['subject'] ??
+        json['eventTitle'];
     if (raw == null) return '';
     final s = raw.toString().trim();
     return s;
@@ -273,7 +289,8 @@ class EventModel {
   factory EventModel.fromJson(Map<String, dynamic> json) {
     final nestedCal = json['calendar'];
     final calId = json['calendarId'] as String?;
-    final fromNested = nestedCal is Map<String, dynamic> ? nestedCal['id']?.toString() : null;
+    final fromNested =
+        nestedCal is Map<String, dynamic> ? nestedCal['id']?.toString() : null;
 
     String? parseInstant(dynamic value) {
       if (value == null) return null;
@@ -305,19 +322,40 @@ class EventModel {
       startTime: parseInstant(json['startTime'] ?? json['start']),
       endTime: parseInstant(json['endTime'] ?? json['end']),
       syncStatus: json['syncStatus'] as String?,
-      location: json['location'] is Map ? LocationModel.fromJson(json['location'] as Map<String, dynamic>) : null,
-      conference: json['conference'] is Map ? ConferenceModel.fromJson(json['conference'] as Map<String, dynamic>) : null,
-      subtasks: (json['subtasks'] as List<dynamic>?)?.map((e) => SubtaskModel.fromJson(e as Map<String, dynamic>)).toList() ?? [],
-      notes: (json['notes'] as List<dynamic>?)?.map((e) => NoteModel.fromJson(e as Map<String, dynamic>)).toList() ?? [],
-      members: (json['members'] as List<dynamic>?)?.map((e) => MemberModel.fromJson(e as Map<String, dynamic>)).toList() ?? [],
-      attachments: (json['attachments'] as List<dynamic>?)?.map((e) => AttachmentModel.fromJson(e as Map<String, dynamic>)).toList() ?? [],
+      location: json['location'] is Map
+          ? LocationModel.fromJson(json['location'] as Map<String, dynamic>)
+          : null,
+      conference: json['conference'] is Map
+          ? ConferenceModel.fromJson(json['conference'] as Map<String, dynamic>)
+          : null,
+      subtasks: (json['subtasks'] as List<dynamic>?)
+              ?.map((e) => SubtaskModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      notes: (json['notes'] as List<dynamic>?)
+              ?.map((e) => NoteModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      members: (json['members'] as List<dynamic>?)
+              ?.map((e) => MemberModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map((e) => AttachmentModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       createdAt: json['createdAt'] as String? ?? '',
       updatedAt: json['updatedAt'] as String? ?? '',
+      virtual: json['virtual'] as bool? ?? false,
+      isRecurring: json['isRecurring'] as bool? ?? false,
+      recurringGroupId: json['recurringGroupId'] as String?,
     );
   }
 
-  DateTime? get startDateTime => startTime != null ? DateTime.tryParse(startTime!)?.toLocal() : null;
-  DateTime? get endDateTime => endTime != null ? DateTime.tryParse(endTime!)?.toLocal() : null;
+  DateTime? get startDateTime =>
+      startTime != null ? DateTime.tryParse(startTime!)?.toLocal() : null;
+  DateTime? get endDateTime =>
+      endTime != null ? DateTime.tryParse(endTime!)?.toLocal() : null;
 
   String get effectiveColor => colorHex ?? '#6366F1';
 
@@ -327,6 +365,7 @@ class EventModel {
     if (t.isNotEmpty) return t;
     return '(Untitled event)';
   }
+
   String? get meetingLink => conference?.meetingLink;
   String? get meetingPlatform => conference?.platformName;
 
@@ -365,6 +404,9 @@ class EventModel {
       attachments: attachments,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      virtual: virtual,
+      isRecurring: isRecurring,
+      recurringGroupId: recurringGroupId,
     );
   }
 
@@ -389,6 +431,9 @@ class EventModel {
       attachments: attachments,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      virtual: virtual,
+      isRecurring: isRecurring,
+      recurringGroupId: recurringGroupId,
     );
   }
 }

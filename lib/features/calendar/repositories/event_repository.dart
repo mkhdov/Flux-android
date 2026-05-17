@@ -7,6 +7,10 @@ import 'dart:io';
 class EventRepository {
   final _api = ApiClient.instance;
 
+  String _baseId(String eventId) {
+    return eventId.contains(':') ? eventId.split(':')[0] : eventId;
+  }
+
   bool _looksLikeEventMap(Map<String, dynamic> map) {
     return map.containsKey('id') ||
         map.containsKey('calendarId') ||
@@ -98,8 +102,48 @@ class EventRepository {
   }
 
   Future<EventModel> getEventById(String id) async {
-    final response = await _api.get('$kEventsEndpoint/$id');
-    return EventModel.fromJson(response.data as Map<String, dynamic>);
+    final isRecurringInstance = id.contains(':');
+    final String baseId = isRecurringInstance ? id.split(':')[0] : id;
+
+    final response = await _api.get('$kEventsEndpoint/$baseId');
+    final model = EventModel.fromJson(response.data as Map<String, dynamic>);
+
+    if (isRecurringInstance) {
+      final parts = id.split(':');
+      try {
+        final startMs = int.parse(parts[1]);
+        final startDt = DateTime.fromMillisecondsSinceEpoch(startMs, isUtc: true).toLocal();
+        final duration = model.endDateTime != null && model.startDateTime != null
+            ? model.endDateTime!.difference(model.startDateTime!)
+            : const Duration(hours: 1);
+        final endDt = startDt.add(duration);
+        return EventModel(
+          id: id,
+          calendarId: model.calendarId,
+          title: model.title,
+          description: model.description,
+          type: model.type,
+          status: model.status,
+          colorHex: model.colorHex,
+          allDay: model.allDay,
+          startTime: startDt.toUtc().toIso8601String(),
+          endTime: endDt.toUtc().toIso8601String(),
+          syncStatus: model.syncStatus,
+          location: model.location,
+          conference: model.conference,
+          subtasks: model.subtasks,
+          notes: model.notes,
+          members: model.members,
+          attachments: model.attachments,
+          createdAt: model.createdAt,
+          updatedAt: model.updatedAt,
+          virtual: true,
+        );
+      } catch (_) {
+        // ignore and return normal model if parsing fails
+      }
+    }
+    return model;
   }
 
   Future<List<EventModel>> createEvent({
@@ -202,7 +246,8 @@ class EventRepository {
     required String eventId,
     required Map<String, dynamic> data,
   }) async {
-    final response = await _api.put('$kEventsEndpoint/$eventId', data: data);
+    final cleanId = _baseId(eventId);
+    final response = await _api.put('$kEventsEndpoint/$cleanId', data: data);
     final raw = response.data;
 
     if (raw is Map<String, dynamic>) {
@@ -213,12 +258,39 @@ class EventRepository {
   }
 
   Future<void> deleteEvent(String eventId) async {
-    await _api.delete('$kEventsEndpoint/$eventId');
+    final cleanId = _baseId(eventId);
+    await _api.delete('$kEventsEndpoint/$cleanId');
+  }
+
+  /// Delete event(s) in a recurring series with the given scope.
+  /// [scope] should be 'THIS_EVENT', 'THIS_AND_FOLLOWING', or 'ALL_EVENTS'.
+  Future<void> deleteRecurringEvent(String eventId, String scope) async {
+    final cleanId = _baseId(eventId);
+    await _api.delete(
+      '$kEventsEndpoint/$cleanId/recurring',
+      queryParameters: {'scope': scope},
+    );
+  }
+
+  /// Update event(s) in a recurring series with the given scope.
+  /// [scope] should be 'THIS_EVENT', 'THIS_AND_FOLLOWING', or 'ALL_EVENTS'.
+  Future<void> updateRecurringEvent(
+    String eventId,
+    Map<String, dynamic> data,
+    String scope,
+  ) async {
+    final cleanId = _baseId(eventId);
+    await _api.put(
+      '$kEventsEndpoint/$cleanId/recurring',
+      data: data,
+      queryParameters: {'scope': scope},
+    );
   }
 
   // Conference
   Future<EventModel> addGoogleMeet(String eventId) async {
-    final response = await _api.post('$kConferenceEndpoint/$eventId/add-meet');
+    final cleanId = _baseId(eventId);
+    final response = await _api.post('$kConferenceEndpoint/$cleanId/add-meet');
     final raw = response.data;
     if (raw is Map<String, dynamic>) {
       return EventModel.fromJson(raw);
@@ -231,7 +303,8 @@ class EventRepository {
   }
 
   Future<EventModel> addZoom(String eventId) async {
-    final response = await _api.post('$kEventsEndpoint/add-zoom/$eventId');
+    final cleanId = _baseId(eventId);
+    final response = await _api.post('$kEventsEndpoint/add-zoom/$cleanId');
     final raw = response.data;
     if (raw is Map<String, dynamic>) {
       return EventModel.fromJson(raw);
@@ -244,9 +317,10 @@ class EventRepository {
   }
 
   Future<EventModel> removeConference(String eventId, String type) async {
+    final cleanId = _baseId(eventId);
     final endpoint = type == 'zoom'
-        ? '$kEventsEndpoint/remove-zoom/$eventId'
-        : '$kConferenceEndpoint/$eventId/remove-meet';
+        ? '$kEventsEndpoint/remove-zoom/$cleanId'
+        : '$kConferenceEndpoint/$cleanId/remove-meet';
     final response = await _api.delete(endpoint);
     final raw = response.data;
     if (raw is Map<String, dynamic>) {
@@ -264,7 +338,8 @@ class EventRepository {
     required String eventId,
     required Map<String, dynamic> locationData,
   }) async {
-    final response = await _api.post('$kLocationEndpoint/$eventId', data: locationData);
+    final cleanId = _baseId(eventId);
+    final response = await _api.post('$kLocationEndpoint/$cleanId', data: locationData);
     return EventModel.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -301,8 +376,9 @@ class EventRepository {
     required String eventId,
     required String subtaskText,
   }) async {
+    final cleanId = _baseId(eventId);
     await _api.post(
-      '/subtasks/event/$eventId',
+      '/subtasks/event/$cleanId',
       data: subtaskText,
       options: Options(contentType: 'text/plain'),
     );
@@ -318,11 +394,12 @@ class EventRepository {
     required String filePath,
     required String fileName,
   }) async {
+    final cleanId = _baseId(eventId);
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath, filename: fileName),
     });
     final response = await _api.post(
-      '/attachments/event/$eventId',
+      '/attachments/event/$cleanId',
       data: formData,
       options: Options(contentType: 'multipart/form-data'),
     );
@@ -354,11 +431,13 @@ class EventRepository {
 
   // Members
   Future<void> inviteMember(String eventId, String email) async {
-    await _api.get('$kShareEventEndpoint/$eventId/${Uri.encodeComponent(email)}');
+    final cleanId = _baseId(eventId);
+    await _api.get('$kShareEventEndpoint/$cleanId/${Uri.encodeComponent(email)}');
   }
 
   Future<List<MemberModel>> getEventMembers(String eventId) async {
-    final response = await _api.get('$kMembersEndpoint/event/$eventId');
+    final cleanId = _baseId(eventId);
+    final response = await _api.get('$kMembersEndpoint/event/$cleanId');
     final data = response.data;
     if (data is List) {
       return data.map((e) => MemberModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -380,7 +459,8 @@ class EventRepository {
   }
 
   Future<List<dynamic>> getRemindersForEvent(String eventId) async {
-    final response = await _api.get('$kRemindersEndpoint/event/$eventId');
+    final cleanId = _baseId(eventId);
+    final response = await _api.get('$kRemindersEndpoint/event/$cleanId');
     final data = response.data;
     if (data is List) return data;
     return [];

@@ -134,8 +134,7 @@ class CalendarProvider extends ChangeNotifier {
   /// Returns events for [date], using the month cache when in month view,
   /// or the short-range cache otherwise.
   List<EventModel> getEventsForDate(DateTime date) {
-    final source =
-    _viewMode == CalendarViewMode.month ? _monthEvents : _events;
+    final source = _viewMode == CalendarViewMode.month ? _monthEvents : _events;
     return _filterEventsForDate(source, date);
   }
 
@@ -189,8 +188,7 @@ class CalendarProvider extends ChangeNotifier {
 
       if (_savedCalendarId != null) {
         try {
-          _selectedCalendar =
-              cals.firstWhere((c) => c.id == _savedCalendarId);
+          _selectedCalendar = cals.firstWhere((c) => c.id == _savedCalendarId);
         } catch (_) {
           _selectedCalendar = null;
         }
@@ -199,11 +197,10 @@ class CalendarProvider extends ChangeNotifier {
       if (_selectedCalendar == null ||
           !cals.any((c) => c.id == _selectedCalendar!.id)) {
         _selectedCalendar = cals.firstWhere(
-              (c) => c.isGoogleSyncCalendar,
+          (c) => c.isGoogleSyncCalendar,
           orElse: () => cals.firstWhere(
-                (c) => c.isPrimary,
-            orElse: () =>
-            cals.isNotEmpty ? cals.first : _selectedCalendar!,
+            (c) => c.isPrimary,
+            orElse: () => cals.isNotEmpty ? cals.first : _selectedCalendar!,
           ),
         );
       }
@@ -282,11 +279,11 @@ class CalendarProvider extends ChangeNotifier {
   /// Range load for day / schedule views.
   /// Only writes to [_events] — never touches [_monthEvents].
   Future<void> loadEventsForRange(
-      String calendarId,
-      DateTime start,
-      DateTime end, {
-        bool clearExisting = false,
-      }) async {
+    String calendarId,
+    DateTime start,
+    DateTime end, {
+    bool clearExisting = false,
+  }) async {
     await NotificationService().cancelAll();
     _isLoadingEvents = true;
     _eventError = null;
@@ -445,8 +442,7 @@ class CalendarProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> setPrimaryCalendar(
-      String calendarId, String userId) async {
+  Future<bool> setPrimaryCalendar(String calendarId, String userId) async {
     try {
       await _calendarRepo.setPrimaryCalendar(
           calendarId: calendarId, userId: userId);
@@ -541,8 +537,7 @@ class CalendarProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _replaceInList(
-      List<EventModel> list, String tempId, EventModel event) {
+  void _replaceInList(List<EventModel> list, String tempId, EventModel event) {
     final idx = list.indexWhere((e) => e.id == tempId);
     if (idx != -1) {
       list[idx] = event;
@@ -609,8 +604,7 @@ class CalendarProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateEvent(
-      String eventId, Map<String, dynamic> data) async {
+  Future<bool> updateEvent(String eventId, Map<String, dynamic> data) async {
     final idxEvents = _events.indexWhere((e) => e.id == eventId);
     final idxMonth = _monthEvents.indexWhere((e) => e.id == eventId);
     EventModel? previous;
@@ -628,7 +622,7 @@ class CalendarProvider extends ChangeNotifier {
 
     try {
       final updated =
-      await _eventRepo.updateEvent(eventId: eventId, data: data);
+          await _eventRepo.updateEvent(eventId: eventId, data: data);
       if (idxEvents != -1) _events[idxEvents] = updated;
       if (idxMonth != -1) _monthEvents[idxMonth] = updated;
       _scheduleReminderForEvent(updated);
@@ -648,9 +642,9 @@ class CalendarProvider extends ChangeNotifier {
 
   Future<void> deleteEvent(String eventId) async {
     final event = _events.firstWhere(
-          (e) => e.id == eventId,
+      (e) => e.id == eventId,
       orElse: () => _monthEvents.firstWhere(
-            (e) => e.id == eventId,
+        (e) => e.id == eventId,
         orElse: () => throw Exception('Event not found'),
       ),
     );
@@ -706,8 +700,7 @@ class CalendarProvider extends ChangeNotifier {
     await _eventRepo.createReminder(data);
   }
 
-  Future<void> createRemindersBatch(
-      List<Map<String, dynamic>> data) async {
+  Future<void> createRemindersBatch(List<Map<String, dynamic>> data) async {
     await _eventRepo.createRemindersBatch(data);
   }
 
@@ -722,8 +715,7 @@ class CalendarProvider extends ChangeNotifier {
   // ─── Navigation ───────────────────────────────────────────────────────────
 
   void goToPrevMonth() {
-    _currentMonth =
-        DateTime(_currentMonth.year, _currentMonth.month - 1);
+    _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
     notifyListeners();
     if (_selectedCalendar != null) {
       loadEventsForMonth(_selectedCalendar!.id, _currentMonth);
@@ -731,8 +723,7 @@ class CalendarProvider extends ChangeNotifier {
   }
 
   void goToNextMonth() {
-    _currentMonth =
-        DateTime(_currentMonth.year, _currentMonth.month + 1);
+    _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
     notifyListeners();
     if (_selectedCalendar != null) {
       loadEventsForMonth(_selectedCalendar!.id, _currentMonth);
@@ -798,9 +789,8 @@ class CalendarProvider extends ChangeNotifier {
 
     return event.copyWithTimes(
       startDateTime:
-      startIso != null ? DateTime.tryParse(startIso)?.toLocal() : null,
-      endDateTime:
-      endIso != null ? DateTime.tryParse(endIso)?.toLocal() : null,
+          startIso != null ? DateTime.tryParse(startIso)?.toLocal() : null,
+      endDateTime: endIso != null ? DateTime.tryParse(endIso)?.toLocal() : null,
       title: title,
       description: description,
       status: status,
@@ -828,17 +818,24 @@ class CalendarProvider extends ChangeNotifier {
         // Only schedule local as safety net for triggers within 24h.
         for (int i = 0; i < reminders.length; i++) {
           final triggerTimeStr = reminders[i]['triggerTime'];
-          if (triggerTimeStr == null) continue;
-          final triggerTime =
-              DateTime.parse(triggerTimeStr).toLocal();
+          if (triggerTimeStr == null) {
+            continue;
+          }
+          final triggerTime = DateTime.parse(triggerTimeStr).toLocal();
           if (triggerTime.isBefore(now) ||
-              triggerTime.isAfter(now.add(_localWindow))) continue;
+              triggerTime.isAfter(now.add(_localWindow))) {
+            continue;
+          }
+          final occurrenceStartStr = reminders[i]['eventStartTime'];
+          final occurrenceStart = occurrenceStartStr != null
+              ? DateTime.tryParse(occurrenceStartStr.toString())?.toLocal()
+              : eventStart;
           final minutesBefore =
-              eventStart.difference(triggerTime).inMinutes;
+              (occurrenceStart ?? eventStart).difference(triggerTime).inMinutes;
           await NotificationService().scheduleEventReminder(
             eventId: '${event.id}_rem_$i',
             eventTitle: event.title,
-            eventStartTime: eventStart,
+            eventStartTime: occurrenceStart ?? eventStart,
             reminderMinutesBefore: minutesBefore,
           );
         }
@@ -861,7 +858,7 @@ class CalendarProvider extends ChangeNotifier {
 
   void _cancelReminderForEvent(String eventId) {
     NotificationService().cancelReminder(eventId);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 50; i++) {
       NotificationService().cancelReminder('${eventId}_rem_$i');
     }
   }

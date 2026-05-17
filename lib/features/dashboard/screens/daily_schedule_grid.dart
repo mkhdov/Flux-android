@@ -184,40 +184,71 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
     }
   }
 
-  bool _overlap(EventModel a, EventModel b) {
-    final as_ = _evStart(a), ad = _evDur(a);
-    final bs  = _evStart(b), bd = _evDur(b);
-    return as_ < bs + bd && bs < as_ + ad;
+  int _layoutEndMins(EventModel ev) {
+    final start = _evStart(ev);
+    final rawDur = _evDur(ev);
+    // Minimum visual height is 28.0 pixels.
+    // 28.0 / _hourH * 60 = 26.25 mins. Round up to 27.
+    final minMins = (28.0 / _hourH * 60).ceil();
+    return start + math.max(rawDur, minMins);
   }
 
   Map<String, _LayoutInfo> _computeLayout(List<EventModel> timed) {
     final result = <String, _LayoutInfo>{};
-    final sorted = [...timed]..sort((a, b) => _evStart(a).compareTo(_evStart(b)));
-    final colEnds = <int>[];
+    if (timed.isEmpty) return result;
+
+    final sorted = [...timed]..sort((a, b) {
+      final s = _evStart(a).compareTo(_evStart(b));
+      if (s != 0) return s;
+      return _layoutEndMins(b).compareTo(_layoutEndMins(a));
+    });
+
+    List<List<EventModel>> clusters = [];
+    List<EventModel> currentCluster = [];
+    int clusterEnd = -1;
+
     for (final ev in sorted) {
-      final s = _evStart(ev), d = _evDur(ev);
-      bool placed = false;
-      for (int c = 0; c < colEnds.length; c++) {
-        if (colEnds[c] <= s) {
-          result[ev.id] = _LayoutInfo(col: c, totalCols: 1);
-          colEnds[c] = s + d;
-          placed = true;
-          break;
+      final start = _evStart(ev);
+      if (currentCluster.isEmpty) {
+        currentCluster.add(ev);
+        clusterEnd = _layoutEndMins(ev);
+      } else {
+        if (start < clusterEnd) {
+          currentCluster.add(ev);
+          clusterEnd = math.max(clusterEnd, _layoutEndMins(ev));
+        } else {
+          clusters.add(currentCluster);
+          currentCluster = [ev];
+          clusterEnd = _layoutEndMins(ev);
         }
       }
-      if (!placed) {
-        result[ev.id] = _LayoutInfo(col: colEnds.length, totalCols: 1);
-        colEnds.add(s + d);
-      }
     }
-    for (final ev in timed) {
-      final peers  = timed.where((o) => o.id != ev.id && _overlap(ev, o)).toList();
-      final myCol  = result[ev.id]?.col ?? 0;
-      final maxCol = peers.isEmpty ? myCol : peers.fold(myCol, (m, o) {
-        final oc = result[o.id]?.col ?? 0;
-        return oc > m ? oc : m;
-      });
-      result[ev.id] = _LayoutInfo(col: myCol, totalCols: maxCol + 1);
+    if (currentCluster.isNotEmpty) {
+      clusters.add(currentCluster);
+    }
+
+    for (final cluster in clusters) {
+      List<List<EventModel>> columns = [];
+      for (final ev in cluster) {
+        bool placed = false;
+        for (int i = 0; i < columns.length; i++) {
+          final lastEv = columns[i].last;
+          if (_layoutEndMins(lastEv) <= _evStart(ev)) {
+            columns[i].add(ev);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          columns.add([ev]);
+        }
+      }
+
+      for (int i = 0; i < columns.length; i++) {
+        for (final ev in columns[i]) {
+          result[ev.id] = _LayoutInfo(col: i, totalCols: columns.length);
+        }
+      }
     }
     return result;
   }
