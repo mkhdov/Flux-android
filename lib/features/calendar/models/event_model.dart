@@ -238,8 +238,6 @@ class EventModel {
   final String createdAt;
   final String updatedAt;
   final bool virtual;
-  final bool isRecurring;
-  final String? recurringGroupId;
 
   const EventModel({
     required this.id,
@@ -262,8 +260,6 @@ class EventModel {
     required this.createdAt,
     required this.updatedAt,
     this.virtual = false,
-    this.isRecurring = false,
-    this.recurringGroupId,
   });
 
   /// Prefer API `title`; fall back to common alternate keys (e.g. Google-style `summary`).
@@ -347,8 +343,6 @@ class EventModel {
       createdAt: json['createdAt'] as String? ?? '',
       updatedAt: json['updatedAt'] as String? ?? '',
       virtual: json['virtual'] as bool? ?? false,
-      isRecurring: json['isRecurring'] as bool? ?? false,
-      recurringGroupId: json['recurringGroupId'] as String?,
     );
   }
 
@@ -405,8 +399,6 @@ class EventModel {
       createdAt: createdAt,
       updatedAt: updatedAt,
       virtual: virtual,
-      isRecurring: isRecurring,
-      recurringGroupId: recurringGroupId,
     );
   }
 
@@ -432,8 +424,6 @@ class EventModel {
       createdAt: createdAt,
       updatedAt: updatedAt,
       virtual: virtual,
-      isRecurring: isRecurring,
-      recurringGroupId: recurringGroupId,
     );
   }
 }

@@ -142,36 +142,9 @@ class _EventDetailSheetState extends State<EventDetailSheet>
     final event = _event;
     if (event == null) return;
 
-    // Ask for recurring scope if needed
-    String? scope;
-    if (event.isRecurring) {
-      scope = await _showRecurringScopeSheet(verb: 'delete');
-      if (scope == null) return; // cancelled
-    }
-
     final provider   = context.read<CalendarProvider>();
     final eventTitle = event.title;
 
-    if (scope != null && scope != 'THIS_EVENT') {
-      // Scoped delete — call recurring endpoint directly
-      try {
-        await _repo.deleteRecurringEvent(widget.eventId, scope);
-        if (!mounted) return;
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Deleted "$eventTitle"', style: GoogleFonts.spaceGrotesk(color: _DS.t1)),
-          backgroundColor: _DS.bg2,
-          duration: const Duration(seconds: 3),
-        ));
-        // Reload calendar
-        provider.loadEvents();
-      } catch (e) {
-        if (mounted) _showError('Failed to delete event(s)');
-      }
-      return;
-    }
-
-    // Single delete (non-recurring or THIS_EVENT)
     provider.deleteEvent(widget.eventId);
     Navigator.pop(context);
     final controller = ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -187,42 +160,6 @@ class _EventDetailSheetState extends State<EventDetailSheet>
         },
       ),
     ));
-  }
-
-  // ── Recurring-aware update ─────────────────────────────────────────────
-  Future<bool> _updateEventWithScope(Map<String, dynamic> patch) async {
-    final event = _event;
-    if (event == null) return false;
-
-    if (!event.isRecurring) {
-      return _updateEvent(patch);
-    }
-
-    final scope = await _showRecurringScopeSheet(verb: 'update');
-    if (scope == null) return false; // cancelled
-
-    if (scope == 'THIS_EVENT') {
-      return _updateEvent(patch);
-    }
-
-    try {
-      await _repo.updateRecurringEvent(widget.eventId, patch, scope);
-      await _loadEvent();
-      return true;
-    } catch (e) {
-      if (mounted) _showError('Failed to update event(s)');
-      return false;
-    }
-  }
-
-  // ── Recurring scope bottom sheet ───────────────────────────────────────
-  Future<String?> _showRecurringScopeSheet({required String verb}) {
-    return showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _RecurringScopeSheet(verb: verb),
-    );
   }
 
 
@@ -328,25 +265,25 @@ class _EventDetailSheetState extends State<EventDetailSheet>
   Future<void> _editTitle() async {
     final next = await _promptText('Edit title', _event?.title ?? '');
     if (next == null || next.trim().isEmpty || next.trim() == _event?.title) return;
-    await _updateEventWithScope({'title': next.trim()});
+    await _updateEvent({'title': next.trim()});
   }
 
   Future<void> _editDescription() async {
     final next = await _promptText('Edit description', _event?.description ?? '', multiline: true);
     if (next == null || next == _event?.description) return;
-    await _updateEventWithScope({'description': next.trim()});
+    await _updateEvent({'description': next.trim()});
   }
 
   Future<void> _editType() async {
     final next = await _promptChoice('Select type', EventUi.eventTypeValues, _event?.type ?? 'OTHERS');
     if (next == null || next == _event?.type) return;
-    await _updateEventWithScope({'type': next});
+    await _updateEvent({'type': next});
   }
 
   Future<void> _editStatus() async {
     final next = await _promptChoice('Select status', EventUi.statusValues, _event?.status ?? 'NOTSTARTED');
     if (next == null || next == _event?.status) return;
-    await _updateEventWithScope({'status': next});
+    await _updateEvent({'status': next});
   }
 
   Future<void> _editTime() async {
@@ -379,7 +316,7 @@ class _EventDetailSheetState extends State<EventDetailSheet>
     final start = DateTime(startDate.year, startDate.month, startDate.day, startTime.hour, startTime.minute);
     final end   = DateTime(startDate.year, startDate.month, startDate.day, endTime.hour, endTime.minute);
     if (!end.isAfter(start)) return;
-    await _updateEventWithScope({
+    await _updateEvent({
       'startTime': start.toUtc().toIso8601String(),
       'endTime':   end.toUtc().toIso8601String(),
       'allDay': false,
@@ -391,7 +328,7 @@ class _EventDetailSheetState extends State<EventDetailSheet>
     final current = loc?.placeName ?? loc?.displayText ?? '';
     final next = await _promptText('Edit location', current);
     if (next == null || next.trim().isEmpty || next.trim() == current.trim()) return;
-    await _updateEventWithScope({'location': {'placeName': next.trim()}});
+    await _updateEvent({'location': {'placeName': next.trim()}});
   }
 
   Future<void> _openMapsFallback() async {
@@ -2012,168 +1949,5 @@ class _ChoiceSheet extends StatelessWidget {
   }
 }
 
-class _RecurringScopeSheet extends StatelessWidget {
-  final String verb;
 
-  const _RecurringScopeSheet({required this.verb});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = verb == 'delete' ? 'Delete recurring event' : 'Edit recurring event';
-    final verbDisplay = verb == 'delete' ? 'delete' : 'update';
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: _DS.bg1,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(
-          top: BorderSide(color: _DS.borderHi, width: 1.5),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: _DS.indigo.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _DS.indigo.withOpacity(0.2), width: 1.5),
-                ),
-                child: const Icon(Icons.loop_rounded, color: _DS.indigo, size: 24),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: _DS.t1,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'This is a recurring event. Which occurrences do you want to $verbDisplay?',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 13,
-                color: _DS.t2,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildOption(
-              context: context,
-              icon: Icons.info_outline_rounded,
-              title: 'This event',
-              description: 'Only $verbDisplay this occurrence',
-              value: 'THIS_EVENT',
-            ),
-            const SizedBox(height: 12),
-            _buildOption(
-              context: context,
-              icon: Icons.double_arrow_rounded,
-              title: 'This and following events',
-              description: '${verb == 'delete' ? 'Delete' : 'Update'} this and all future occurrences',
-              value: 'THIS_AND_FOLLOWING',
-            ),
-            const SizedBox(height: 12),
-            _buildOption(
-              context: context,
-              icon: Icons.all_inclusive_rounded,
-              title: 'All events',
-              description: '${verb == 'delete' ? 'Delete' : 'Update'} every occurrence in the series',
-              value: 'ALL_EVENTS',
-            ),
-            const SizedBox(height: 20),
-            TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.spaceGrotesk(
-                  color: _DS.t3,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOption({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required String description,
-    required String value,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => Navigator.pop(context, value),
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: _DS.bg2,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _DS.border, width: 1),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: _DS.cyan.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _DS.cyan.withOpacity(0.15), width: 1),
-                ),
-                child: Icon(icon, color: _DS.cyan, size: 18),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: _DS.t1,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      description,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 11,
-                        color: _DS.t3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 

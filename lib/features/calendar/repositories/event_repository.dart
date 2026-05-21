@@ -262,30 +262,6 @@ class EventRepository {
     await _api.delete('$kEventsEndpoint/$cleanId');
   }
 
-  /// Delete event(s) in a recurring series with the given scope.
-  /// [scope] should be 'THIS_EVENT', 'THIS_AND_FOLLOWING', or 'ALL_EVENTS'.
-  Future<void> deleteRecurringEvent(String eventId, String scope) async {
-    final cleanId = _baseId(eventId);
-    await _api.delete(
-      '$kEventsEndpoint/$cleanId/recurring',
-      queryParameters: {'scope': scope},
-    );
-  }
-
-  /// Update event(s) in a recurring series with the given scope.
-  /// [scope] should be 'THIS_EVENT', 'THIS_AND_FOLLOWING', or 'ALL_EVENTS'.
-  Future<void> updateRecurringEvent(
-    String eventId,
-    Map<String, dynamic> data,
-    String scope,
-  ) async {
-    final cleanId = _baseId(eventId);
-    await _api.put(
-      '$kEventsEndpoint/$cleanId/recurring',
-      data: data,
-      queryParameters: {'scope': scope},
-    );
-  }
 
   // Conference
   Future<EventModel> addGoogleMeet(String eventId) async {
