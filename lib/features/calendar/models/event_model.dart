@@ -240,6 +240,10 @@ class EventModel {
   final bool virtual;
   final String? recurringGroupId;
   final bool isRecurring;
+  final bool hasLocation;
+  final bool hasConference;
+  final bool hasSubtasks;
+  final bool hasAttachments;
 
   const EventModel({
     required this.id,
@@ -264,6 +268,10 @@ class EventModel {
     this.virtual = false,
     this.recurringGroupId,
     this.isRecurring = false,
+    this.hasLocation = false,
+    this.hasConference = false,
+    this.hasSubtasks = false,
+    this.hasAttachments = false,
   });
 
   /// Prefer API `title`; fall back to common alternate keys (e.g. Google-style `summary`).
@@ -349,6 +357,10 @@ class EventModel {
       virtual: json['virtual'] as bool? ?? false,
       recurringGroupId: json['recurringGroupId'] as String?,
       isRecurring: json['isRecurring'] as bool? ?? json['recurring'] as bool? ?? false,
+      hasLocation: json['hasLocation'] as bool? ?? json['location'] != null,
+      hasConference: json['hasConference'] as bool? ?? json['conference'] != null,
+      hasSubtasks: json['hasSubtasks'] as bool? ?? (json['subtasks'] != null && (json['subtasks'] as List).isNotEmpty),
+      hasAttachments: json['hasAttachments'] as bool? ?? (json['attachments'] != null && (json['attachments'] as List).isNotEmpty),
     );
   }
 
@@ -407,6 +419,10 @@ class EventModel {
       virtual: virtual,
       recurringGroupId: recurringGroupId,
       isRecurring: isRecurring,
+      hasLocation: hasLocation,
+      hasConference: hasConference,
+      hasSubtasks: hasSubtasks,
+      hasAttachments: hasAttachments,
     );
   }
 
@@ -434,6 +450,10 @@ class EventModel {
       virtual: virtual,
       recurringGroupId: recurringGroupId,
       isRecurring: isRecurring,
+      hasLocation: hasLocation,
+      hasConference: hasConference,
+      hasSubtasks: subtasks.isNotEmpty,
+      hasAttachments: hasAttachments,
     );
   }
 }

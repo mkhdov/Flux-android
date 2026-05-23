@@ -59,19 +59,19 @@ abstract final class EventUi {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (e.location != null && e.location!.displayText.isNotEmpty)
+        if (e.hasLocation)
           _tinyIcon(Icons.place_outlined, AppColors.textMuted, iconSize, 'Location'),
-        if (e.conference != null)
+        if (e.hasConference)
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: _tinyIcon(Icons.video_call_rounded, AppColors.textMuted, iconSize, 'Conference'),
           ),
-        if (e.attachments.isNotEmpty)
+        if (e.hasAttachments)
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: _tinyIcon(Icons.attach_file_rounded, AppColors.textMuted, iconSize, 'Attachments'),
           ),
-        if (e.subtasks.isNotEmpty)
+        if (e.hasSubtasks)
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: _tinyIcon(Icons.checklist_rounded, AppColors.textMuted, iconSize, 'Subtasks'),
@@ -96,10 +96,6 @@ abstract final class EventUi {
     bool showStatus = true,
     double iconSize = 14,
   }) {
-    final hasLoc = e.location != null && e.location!.displayText.isNotEmpty;
-    final hasAtt = e.attachments.isNotEmpty;
-    final hasSub = e.subtasks.isNotEmpty;
-
     return Wrap(
       spacing: 6,
       runSpacing: 4,
@@ -109,13 +105,13 @@ abstract final class EventUi {
           statusChip(e.status),
         if (e.type != null && e.type!.isNotEmpty)
           typeChip(e.type!, e.effectiveColor),
-        if (hasLoc)
+        if (e.hasLocation)
           _tinyIcon(Icons.place_outlined, AppColors.textMuted, iconSize, 'Location'),
-        if (e.conference != null)
+        if (e.hasConference)
           _tinyIcon(Icons.video_call_rounded, AppColors.textMuted, iconSize, 'Conference'),
-        if (hasAtt)
+        if (e.hasAttachments)
           _tinyIcon(Icons.attach_file_rounded, AppColors.textMuted, iconSize, 'Attachments'),
-        if (hasSub)
+        if (e.hasSubtasks)
           _tinyIcon(Icons.checklist_rounded, AppColors.textMuted, iconSize, 'Subtasks'),
       ],
     );

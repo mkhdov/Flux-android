@@ -409,6 +409,8 @@ class _MonthHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final createDate = _createDateForMonth(month);
+    final now = DateTime.now();
+    final isToday = month.year == now.year && month.month == now.month;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 6, 8, 6),
@@ -457,20 +459,21 @@ class _MonthHeader extends StatelessWidget {
             ),
           ),
           // Today button
-          TextButton(
-            onPressed: provider.goToToday,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: const Size(0, 36),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          if (!isToday)
+            TextButton(
+              onPressed: provider.goToToday,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Today',
+                style: GoogleFonts.roboto(
+                    fontSize: 13, fontWeight: FontWeight.w700),
+              ),
             ),
-            child: Text(
-              'Today',
-              style: GoogleFonts.roboto(
-                  fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-          ),
           // Add event button
           _HeaderIconButton(
             icon: Icons.add_rounded,

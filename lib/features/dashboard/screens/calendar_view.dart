@@ -242,15 +242,16 @@ class _CalendarViewState extends State<CalendarView> {
             ),
           ),
           const Spacer(),
-          TextButton(
-            onPressed: provider.goToToday,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+          if (!isToday)
+            TextButton(
+              onPressed: provider.goToToday,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: Text('Today',
+                  style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
             ),
-            child: Text('Today',
-                style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
           IconButton(
             icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 26),
             onPressed: () {
@@ -357,6 +358,12 @@ class _EventsListState extends State<_EventsList> {
     final months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     final dt = provider.currentMonth;
     final title = '${months[dt.month - 1]} ${dt.year}';
+    final now = DateTime.now();
+    final selectedDate = provider.selectedDate;
+    final isToday = selectedDate != null &&
+        selectedDate.year == now.year &&
+        selectedDate.month == now.month &&
+        selectedDate.day == now.day;
     return Container(
       height: kToolbarHeight,
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -402,12 +409,13 @@ class _EventsListState extends State<_EventsList> {
                   color: AppColors.adaptiveTextSecondary(context), size: 22),
               onPressed: () => provider.loadEvents(provider.selectedCalendar!.id),
             ),
-          TextButton(
-            onPressed: provider.goToToday,
-            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-            child: Text('Today',
-                style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
+          if (!isToday)
+            TextButton(
+              onPressed: provider.goToToday,
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+              child: Text('Today',
+                  style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
         ],
       ),
     );

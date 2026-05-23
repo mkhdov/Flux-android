@@ -63,6 +63,7 @@ class _EventDetailSheetState extends State<EventDetailSheet>
   final _repo = EventRepository();
   EventModel? _event;
   bool _isLoading = true;
+  bool _isRefreshingDetails = false;
   String? _error;
 
   final _titleCtrl = TextEditingController();
@@ -103,25 +104,33 @@ class _EventDetailSheetState extends State<EventDetailSheet>
             subtasks: [], notes: [], members: [], attachments: [],
             createdAt: '', updatedAt: ''),
       );
+      final evIdBase = widget.eventId.contains(':') ? widget.eventId.split(':')[0] : widget.eventId;
       if (existing.id.isNotEmpty) {
         _event = existing;
         _titleCtrl.text = existing.title;
         _descCtrl.text  = existing.description ?? '';
-        setState(() => _isLoading = false);
+        setState(() { _isLoading = false; _isRefreshingDetails = true; });
         _refreshMapLinks();
       }
-      final refreshed = await calProvider.refreshEvent(widget.eventId);
+      final refreshed = await calProvider.refreshEvent(evIdBase);
       if (!mounted) return;
       if (refreshed != null) {
-        _event = refreshed;
-        _titleCtrl.text = refreshed.title;
-        _descCtrl.text  = refreshed.description ?? '';
+        EventModel toSet = refreshed;
+        if (widget.eventId.contains(':')) {
+           toSet = refreshed.copyWithTimes(
+             startDateTime: existing.startDateTime,
+             endDateTime: existing.endDateTime,
+           );
+        }
+        _event = toSet;
+        _titleCtrl.text = toSet.title;
+        _descCtrl.text  = toSet.description ?? '';
         _refreshMapLinks();
       }
     } catch (e) {
       _error = 'Failed to load event.';
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() { _isLoading = false; _isRefreshingDetails = false; });
     }
   }
 
@@ -816,7 +825,12 @@ class _EventDetailSheetState extends State<EventDetailSheet>
         ),
 
         // ── Location ──
-        if (loc != null &&
+        if (event.hasLocation && _isRefreshingDetails && loc == null) ...[
+          const SizedBox(height: 24),
+          _SectionLabel('Location', icon: Icons.location_on_outlined, color: _DS.amber),
+          const SizedBox(height: 10),
+          _buildLoading(),
+        ] else if (loc != null &&
             (loc.displayText.isNotEmpty ||
              (loc.placeName?.isNotEmpty ?? false) ||
              (loc.streetAddress?.isNotEmpty ?? false))) ...[
@@ -863,7 +877,7 @@ class _EventDetailSheetState extends State<EventDetailSheet>
           label: 'Video Conference',
           icon: Icons.video_call_rounded,
           color: _DS.teal,
-          action: event.conference == null ? Row(
+          action: (event.hasConference && event.conference == null) ? const SizedBox.shrink() : event.conference == null ? Row(
             children: [
               _AuroraTextBtn(label: '+ Meet', color: const Color(0xFF34A853), onTap: _addGoogleMeet),
               const SizedBox(width: 8),
@@ -872,7 +886,9 @@ class _EventDetailSheetState extends State<EventDetailSheet>
           ) : const SizedBox.shrink(),
         ),
         const SizedBox(height: 10),
-        if (event.conference != null)
+        if (event.hasConference && _isRefreshingDetails && event.conference == null)
+          _buildLoading()
+        else if (event.conference != null)
           _ConferenceCard(conference: event.conference!, onJoin: _openMeetingLink, onRemove: _removeConference)
         else
           _EmptyHint('No video conference added'),
@@ -887,7 +903,9 @@ class _EventDetailSheetState extends State<EventDetailSheet>
           action: _AuroraTextBtn(label: '+ Add', color: _DS.cyan, onTap: _uploadAttachment),
         ),
         const SizedBox(height: 8),
-        if (event.attachments.isEmpty)
+        if (event.hasAttachments && _isRefreshingDetails && event.attachments.isEmpty)
+          _buildLoading()
+        else if (event.attachments.isEmpty)
           _EmptyHint('No attachments yet')
         else
           ...event.attachments.map((a) => _AttachmentTile(
@@ -911,7 +929,9 @@ class _EventDetailSheetState extends State<EventDetailSheet>
           action: _AuroraTextBtn(label: '+ Add', color: _DS.teal, onTap: _addSubtask),
         ),
         const SizedBox(height: 8),
-        if (event.subtasks.isNotEmpty) ...[
+        if (event.hasSubtasks && _isRefreshingDetails && event.subtasks.isEmpty)
+          _buildLoading()
+        else if (event.subtasks.isNotEmpty) ...[
           _AuroraProgressBar(value: event.subtaskProgress, color: accent),
           const SizedBox(height: 10),
           ...event.subtasks.map((sub) => _SubtaskItem(
@@ -974,7 +994,7 @@ class _EventDetailSheetState extends State<EventDetailSheet>
         const SizedBox(height: 28),
         Center(
           child: Text(
-            'Created ${DateFormat('MMM d, yyyy').format(DateTime.parse(event.createdAt).toLocal())}',
+            'Created ${_formatDate(event.createdAt)}',
             style: GoogleFonts.spaceMono(fontSize: 10, color: _DS.t3, letterSpacing: 0.8),
           ),
         ),
@@ -1765,7 +1785,7 @@ class _NoteCard extends StatelessWidget {
                   Text(note.content,
                       style: GoogleFonts.spaceGrotesk(color: _DS.t2, fontSize: 13, height: 1.55)),
                   const SizedBox(height: 6),
-                  Text(DateFormat('MMM d, yyyy').format(DateTime.parse(note.createdAt).toLocal()),
+                  Text(_formatDate(note.createdAt),
                       style: GoogleFonts.spaceMono(color: _DS.t3, fontSize: 10)),
                 ],
               ),
@@ -1994,5 +2014,14 @@ class _ChoiceSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+String _formatDate(String iso) {
+  if (iso.isEmpty) return '';
+  try {
+    return DateFormat('MMM d, yyyy').format(DateTime.parse(iso).toLocal());
+  } catch (_) {
+    return '';
   }
 }
