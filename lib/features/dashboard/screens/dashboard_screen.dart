@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import 'calendar_view.dart';
 import 'task_view.dart';
 import 'meeting_view.dart';
+import 'flux_ai_view.dart';
 import '../../calendar/widgets/calendar_drawer.dart';
 import '../../calendar/widgets/mini_calendar.dart';
 import '../../settings/screens/settings_screen.dart';
@@ -67,6 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   CalendarView(scaffoldKey: _scaffoldKey),
                   TaskView(scaffoldKey: _scaffoldKey),
+                  FluxAiView(scaffoldKey: _scaffoldKey),
                   MeetingView(scaffoldKey: _scaffoldKey),
                   SettingsScreen(scaffoldKey: _scaffoldKey),
                 ],
@@ -130,13 +132,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   }
                 },
               ),
+              _FluxAiNavItem(
+                isActive: _currentIndex == 2,
+                onTap: () => setState(() => _currentIndex = 2),
+              ),
               _NavItem(
                 icon: Icons.video_camera_back_outlined,
                 activeIcon: Icons.video_camera_back,
                 label: 'Meetings',
-                isActive: _currentIndex == 2,
+                isActive: _currentIndex == 3,
                 onTap: () {
-                  setState(() => _currentIndex = 2);
+                  setState(() => _currentIndex = 3);
                   if (calendarProvider.selectedCalendar != null) {
                     calendarProvider
                         .loadMeetings(calendarProvider.selectedCalendar!.id);
@@ -147,8 +153,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.settings_outlined,
                 activeIcon: Icons.settings,
                 label: 'Settings',
-                isActive: _currentIndex == 3,
-                onTap: () => setState(() => _currentIndex = 3),
+                isActive: _currentIndex == 4,
+                onTap: () => setState(() => _currentIndex = 4),
               ),
             ],
           ),
@@ -193,6 +199,65 @@ class _NavItem extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
+                style: GoogleFonts.roboto(
+                  fontSize: 11,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                  color: isActive
+                      ? AppColors.primary
+                      : AppColors.adaptiveTextMuted(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FluxAiNavItem extends StatelessWidget {
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _FluxAiNavItem({
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          )
+                        ]
+                      : null,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Flux AI',
                 style: GoogleFonts.roboto(
                   fontSize: 11,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
