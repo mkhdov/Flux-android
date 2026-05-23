@@ -245,9 +245,15 @@ class EventRepository {
   Future<EventModel> updateEvent({
     required String eventId,
     required Map<String, dynamic> data,
+    String? scope,
   }) async {
     final cleanId = _baseId(eventId);
-    final response = await _api.put('$kEventsEndpoint/$cleanId', data: data);
+    final scoped = scope != null && scope.isNotEmpty;
+    final response = await _api.put(
+      scoped ? '$kEventsEndpoint/$cleanId/recurring' : '$kEventsEndpoint/$cleanId',
+      data: data,
+      queryParameters: scoped ? {'scope': scope} : null,
+    );
     final raw = response.data;
 
     if (raw is Map<String, dynamic>) {
@@ -260,6 +266,14 @@ class EventRepository {
   Future<void> deleteEvent(String eventId) async {
     final cleanId = _baseId(eventId);
     await _api.delete('$kEventsEndpoint/$cleanId');
+  }
+
+  Future<void> deleteRecurringEvent(String eventId, String scope) async {
+    final cleanId = _baseId(eventId);
+    await _api.delete(
+      '$kEventsEndpoint/$cleanId/recurring',
+      queryParameters: {'scope': scope},
+    );
   }
 
 

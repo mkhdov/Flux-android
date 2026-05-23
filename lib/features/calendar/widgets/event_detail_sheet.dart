@@ -67,8 +67,6 @@ class _EventDetailSheetState extends State<EventDetailSheet>
 
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
-  String _status = 'NOTSTARTED';
-  String _type   = 'OTHERS';
 
   Map<String, dynamic>? _mapLinks;
   bool _mapLoading = false;
@@ -109,8 +107,6 @@ class _EventDetailSheetState extends State<EventDetailSheet>
         _event = existing;
         _titleCtrl.text = existing.title;
         _descCtrl.text  = existing.description ?? '';
-        _status = existing.status ?? 'NOTSTARTED';
-        _type   = existing.type   ?? 'OTHERS';
         setState(() => _isLoading = false);
         _refreshMapLinks();
       }
@@ -120,8 +116,6 @@ class _EventDetailSheetState extends State<EventDetailSheet>
         _event = refreshed;
         _titleCtrl.text = refreshed.title;
         _descCtrl.text  = refreshed.description ?? '';
-        _status = refreshed.status ?? 'NOTSTARTED';
-        _type   = refreshed.type   ?? 'OTHERS';
         _refreshMapLinks();
       }
     } catch (e) {
@@ -132,9 +126,21 @@ class _EventDetailSheetState extends State<EventDetailSheet>
   }
 
   Future<bool> _updateEvent(Map<String, dynamic> patch) async {
+    final event = _event;
+    final scope = event?.isRecurring == true
+        ? await _promptRecurringScope('Apply changes to')
+        : null;
+    if (event?.isRecurring == true && scope == null) return false;
+    if (!mounted) return false;
+
     final provider = context.read<CalendarProvider>();
-    final success  = await provider.updateEvent(widget.eventId, patch);
-    if (success) await _loadEvent();
+    final success  = await provider.updateEvent(widget.eventId, patch, scope: scope);
+    if (success) {
+      if (scope != null && scope != 'THIS_EVENT' && event != null) {
+        await provider.loadEvents(event.calendarId);
+      }
+      await _loadEvent();
+    }
     return success;
   }
 
@@ -145,9 +151,33 @@ class _EventDetailSheetState extends State<EventDetailSheet>
     final provider   = context.read<CalendarProvider>();
     final eventTitle = event.title;
 
+    final scope = event.isRecurring
+        ? await _promptRecurringScope('Delete')
+        : null;
+    if (event.isRecurring && scope == null) return;
+    if (!mounted) return;
+
+    if (scope != null && scope != 'THIS_EVENT') {
+      try {
+        await _repo.deleteRecurringEvent(widget.eventId, scope);
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Deleted "$eventTitle"', style: GoogleFonts.spaceGrotesk(color: _DS.t1)),
+          backgroundColor: _DS.bg2,
+          duration: const Duration(seconds: 3),
+        ));
+        // Reload calendar
+        provider.loadEvents(event.calendarId);
+      } catch (e) {
+        if (mounted) _showError('Failed to delete event(s)');
+      }
+      return;
+    }
+
     provider.deleteEvent(widget.eventId);
     Navigator.pop(context);
-    final controller = ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('Deleted "$eventTitle"', style: GoogleFonts.spaceGrotesk(color: _DS.t1)),
       backgroundColor: _DS.bg2,
       duration: const Duration(seconds: 5),
@@ -603,6 +633,18 @@ class _EventDetailSheetState extends State<EventDetailSheet>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _ChoiceSheet(title: title, values: values, current: current),
+    );
+  }
+
+  Future<String?> _promptRecurringScope(String title) {
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ChoiceSheet(
+        title: title,
+        values: ['THIS_EVENT', 'ALL_EVENTS'],
+        current: 'THIS_EVENT',
+      ),
     );
   }
 
@@ -1925,8 +1967,14 @@ class _ChoiceSheet extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: values.map((v) {
                     final isSelected = v == current;
-                    final label = title.contains('status')
-                        ? EventUi.statusLabel(v) : EventUi.typeLabel(v);
+                    final label = switch (v) {
+                      'THIS_EVENT' => 'Only this event',
+                      'ALL_EVENTS' => 'All events',
+                      'THIS_AND_FOLLOWING' => 'This and following',
+                      _ => title.toLowerCase().contains('status')
+                          ? EventUi.statusLabel(v)
+                          : EventUi.typeLabel(v),
+                    };
                     return ListTile(
                       title: Text(label, style: GoogleFonts.spaceGrotesk(
                           color: isSelected ? _DS.cyan : _DS.t1,
@@ -1948,6 +1996,3 @@ class _ChoiceSheet extends StatelessWidget {
     );
   }
 }
-
-
-

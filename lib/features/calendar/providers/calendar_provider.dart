@@ -604,7 +604,7 @@ class CalendarProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateEvent(String eventId, Map<String, dynamic> data) async {
+  Future<bool> updateEvent(String eventId, Map<String, dynamic> data, {String? scope}) async {
     final idxEvents = _events.indexWhere((e) => e.id == eventId);
     final idxMonth = _monthEvents.indexWhere((e) => e.id == eventId);
     EventModel? previous;
@@ -622,7 +622,7 @@ class CalendarProvider extends ChangeNotifier {
 
     try {
       final updated =
-          await _eventRepo.updateEvent(eventId: eventId, data: data);
+          await _eventRepo.updateEvent(eventId: eventId, data: data, scope: scope);
       if (idxEvents != -1) _events[idxEvents] = updated;
       if (idxMonth != -1) _monthEvents[idxMonth] = updated;
       _scheduleReminderForEvent(updated);
