@@ -41,7 +41,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await calendar.loadCalendars(auth.user!.id);
       if (calendar.selectedCalendar != null) {
         if (calendar.viewMode == CalendarViewMode.month) {
-          await calendar.loadEventsForMonth(calendar.selectedCalendar!.id, calendar.currentMonth);
+          await calendar.loadEventsForMonth(
+              calendar.selectedCalendar!.id, calendar.currentMonth);
         } else {
           await calendar.loadEvents(calendar.selectedCalendar!.id);
         }
@@ -51,7 +52,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final calendarProvider = context.watch<CalendarProvider>();
+    final isMiniCalendarVisible = context.select<CalendarProvider, bool>(
+      (provider) => provider.isMiniCalendarVisible,
+    );
 
     return Scaffold(
       key: _scaffoldKey,
@@ -74,15 +77,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            if (calendarProvider.isMiniCalendarVisible && _currentIndex == 0)
+            if (isMiniCalendarVisible && _currentIndex == 0)
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => calendarProvider.setMiniCalendarVisible(false),
+                  onTap: () => context
+                      .read<CalendarProvider>()
+                      .setMiniCalendarVisible(false),
                   child: const SizedBox.expand(),
                 ),
               ),
-            if (calendarProvider.isMiniCalendarVisible && _currentIndex == 0)
+            if (isMiniCalendarVisible && _currentIndex == 0)
               Positioned(
                 top: kToolbarHeight,
                 left: 12,
@@ -97,7 +102,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
-                  child: MiniCalendar(provider: calendarProvider),
+                  child: Consumer<CalendarProvider>(
+                    builder: (context, provider, _) =>
+                        MiniCalendar(provider: provider),
+                  ),
                 ),
               ),
           ],
@@ -125,6 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 isActive: _currentIndex == 1,
                 onTap: () {
                   setState(() => _currentIndex = 1);
+                  final calendarProvider = context.read<CalendarProvider>();
                   if (calendarProvider.selectedCalendar != null) {
                     context
                         .read<TaskProvider>()
@@ -143,6 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 isActive: _currentIndex == 3,
                 onTap: () {
                   setState(() => _currentIndex = 3);
+                  final calendarProvider = context.read<CalendarProvider>();
                   if (calendarProvider.selectedCalendar != null) {
                     calendarProvider
                         .loadMeetings(calendarProvider.selectedCalendar!.id);

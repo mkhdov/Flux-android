@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/calendar_model.dart';
@@ -32,6 +34,12 @@ class CalendarProvider extends ChangeNotifier {
   /// Kept separate so that loadEvents() / loadEventsForRange() never
   /// silently wipes out a full-month load.
   List<EventModel> _monthEvents = [];
+  Map<int, List<EventModel>> _eventsByDay = const {};
+  Map<int, List<EventModel>> _monthEventsByDay = const {};
+  final Map<String, List<EventModel>> _monthEventCache = {};
+  final Map<String, Future<void>> _monthLoads = {};
+  final Set<String> _loadedRangeKeys = {};
+  final Map<String, Future<void>> _rangeLoads = {};
 
   List<EventModel> _meetings = [];
   bool _isLoadingCalendars = false;
@@ -134,38 +142,9 @@ class CalendarProvider extends ChangeNotifier {
   /// Returns events for [date], using the month cache when in month view,
   /// or the short-range cache otherwise.
   List<EventModel> getEventsForDate(DateTime date) {
-    final source = _viewMode == CalendarViewMode.month ? _monthEvents : _events;
-    return _filterEventsForDate(source, date);
-  }
-
-  List<EventModel> _filterEventsForDate(
-      List<EventModel> source, DateTime date) {
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-
-    return source.where((event) {
-      if (event.startDateTime == null) return false;
-
-      final eStart = event.startDateTime!;
-
-      if (event.allDay || event.endDateTime == null) {
-        return eStart.year == date.year &&
-            eStart.month == date.month &&
-            eStart.day == date.day;
-      }
-
-      final eEnd = event.endDateTime!;
-      return eStart.isBefore(endOfDay) && eEnd.isAfter(startOfDay);
-    }).toList()
-      ..sort((a, b) {
-        if (a.allDay && !b.allDay) return -1;
-        if (!a.allDay && b.allDay) return 1;
-        final aStart = a.startDateTime;
-        final bStart = b.startDateTime;
-        if (aStart == null) return 1;
-        if (bStart == null) return -1;
-        return aStart.compareTo(bStart);
-      });
+    final source =
+        _viewMode == CalendarViewMode.month ? _monthEventsByDay : _eventsByDay;
+    return source[_dayKey(date)] ?? const <EventModel>[];
   }
 
   List<EventModel> getAllDayEventsForDate(DateTime date) {
@@ -219,6 +198,10 @@ class CalendarProvider extends ChangeNotifier {
   Future<void> selectCalendar(CalendarModel calendar) async {
     _events = [];
     _monthEvents = [];
+    _eventsByDay = const {};
+    _monthEventsByDay = const {};
+    _loadedRangeKeys.clear();
+    _rangeLoads.clear();
     _selectedCalendar = calendar;
     _saveSelectedCalendarId(calendar.id);
     notifyListeners();
@@ -238,7 +221,7 @@ class CalendarProvider extends ChangeNotifier {
   /// Short-range load for day / schedule views (~8 days).
   /// Only writes to [_events] — never touches [_monthEvents].
   Future<void> loadEvents(String calendarId) async {
-    await NotificationService().cancelAll();
+    unawaited(NotificationService().cancelAll());
     final start = DateTime.now().subtract(const Duration(days: 1));
     final end = start.add(const Duration(days: 7));
     await loadEventsForRange(calendarId, start, end, clearExisting: true);
@@ -246,34 +229,67 @@ class CalendarProvider extends ChangeNotifier {
 
   /// Full-month load for the monthly calendar view.
   /// Only writes to [_monthEvents] — never touches [_events].
-  Future<void> loadEventsForMonth(String calendarId, DateTime month) async {
+  Future<void> loadEventsForMonth(
+    String calendarId,
+    DateTime month, {
+    bool forceRefresh = false,
+  }) async {
+    final key = _monthCacheKey(calendarId, month);
+    final cached = _monthEventCache[key];
+    if (!forceRefresh && cached != null) {
+      _monthEvents = List<EventModel>.of(cached);
+      _monthEventsByDay = _indexEventsByDay(_monthEvents);
+      _eventError = null;
+      _isLoadingMonth = false;
+      notifyListeners();
+      return;
+    }
+
+    final activeLoad = _monthLoads[key];
+    if (activeLoad != null) {
+      await activeLoad;
+      return;
+    }
+
     _isLoadingMonth = true;
     _eventError = null;
     _monthEvents = [];
+    _monthEventsByDay = const {};
     notifyListeners();
 
-    try {
-      final evts = await _eventRepo.getEventsByMonth(
-        calendarId: calendarId,
-        year: month.year,
-        month: month.month,
-      );
+    final load = () async {
+      try {
+        final evts = await _eventRepo.getEventsByMonth(
+          calendarId: calendarId,
+          year: month.year,
+          month: month.month,
+        );
 
-      _monthEvents = evts;
+        _sortList(evts);
+        _monthEventCache[key] = List<EventModel>.unmodifiable(evts);
 
-      _monthEvents.sort((a, b) {
-        if (a.allDay && !b.allDay) return -1;
-        if (!a.allDay && b.allDay) return 1;
-        final aStart = a.startDateTime ?? DateTime.now();
-        final bStart = b.startDateTime ?? DateTime.now();
-        return aStart.compareTo(bStart);
-      });
-    } catch (_) {
-      _eventError = 'Failed to load events.';
-    } finally {
-      _isLoadingMonth = false;
-      notifyListeners();
-    }
+        if (_selectedCalendar?.id == calendarId &&
+            _monthCacheKey(calendarId, _currentMonth) == key) {
+          _monthEvents = evts;
+          _monthEventsByDay = _indexEventsByDay(_monthEvents);
+        }
+      } catch (_) {
+        if (_selectedCalendar?.id == calendarId &&
+            _monthCacheKey(calendarId, _currentMonth) == key) {
+          _eventError = 'Failed to load events.';
+        }
+      } finally {
+        _monthLoads.remove(key);
+        if (_selectedCalendar?.id == calendarId &&
+            _monthCacheKey(calendarId, _currentMonth) == key) {
+          _isLoadingMonth = false;
+          notifyListeners();
+        }
+      }
+    }();
+
+    _monthLoads[key] = load;
+    await load;
   }
 
   /// Range load for day / schedule views.
@@ -283,48 +299,69 @@ class CalendarProvider extends ChangeNotifier {
     DateTime start,
     DateTime end, {
     bool clearExisting = false,
+    bool showLoading = true,
+    bool scheduleReminders = true,
   }) async {
-    await NotificationService().cancelAll();
-    _isLoadingEvents = true;
-    _eventError = null;
-    if (clearExisting) _events = [];
-    notifyListeners();
+    final rangeKey = _rangeCacheKey(calendarId, start, end);
+    if (!clearExisting && _loadedRangeKeys.contains(rangeKey)) return;
 
-    try {
-      DateTime currentStart = start;
-      while (currentStart.isBefore(end)) {
-        DateTime currentEnd = currentStart.add(const Duration(days: 7));
-        if (currentEnd.isAfter(end)) currentEnd = end;
-
-        final evts = await _eventRepo.getEventsByCalendar(
-          calendarId,
-          startDate: currentStart,
-          endDate: currentEnd,
-        );
-
-        final existingIds = _events.map((e) => e.id).toSet();
-        for (final e in evts) {
-          if (!existingIds.contains(e.id)) {
-            _events.add(e);
-            _scheduleReminderForEvent(e);
-          }
-        }
-        currentStart = currentEnd;
-      }
-
-      _events.sort((a, b) {
-        if (a.allDay && !b.allDay) return -1;
-        if (!a.allDay && b.allDay) return 1;
-        final aStart = a.startDateTime ?? DateTime.now();
-        final bStart = b.startDateTime ?? DateTime.now();
-        return aStart.compareTo(bStart);
-      });
-    } catch (e) {
-      _eventError = 'Failed to load events.';
-    } finally {
-      _isLoadingEvents = false;
-      notifyListeners();
+    final activeLoad = _rangeLoads[rangeKey];
+    if (activeLoad != null) {
+      await activeLoad;
+      return;
     }
+
+    if (showLoading) _isLoadingEvents = true;
+    _eventError = null;
+    if (clearExisting) {
+      _events = [];
+      _eventsByDay = const {};
+      _loadedRangeKeys.clear();
+    }
+    if (showLoading || clearExisting) notifyListeners();
+
+    final load = () async {
+      final eventsToSchedule = <EventModel>[];
+      try {
+        DateTime currentStart = start;
+        while (currentStart.isBefore(end)) {
+          DateTime currentEnd = currentStart.add(const Duration(days: 7));
+          if (currentEnd.isAfter(end)) currentEnd = end;
+
+          final evts = await _eventRepo.getEventsByCalendar(
+            calendarId,
+            startDate: currentStart,
+            endDate: currentEnd,
+          );
+
+          final existingIds = _events.map((e) => e.id).toSet();
+          for (final e in evts) {
+            if (!existingIds.contains(e.id)) {
+              _events.add(e);
+              existingIds.add(e.id);
+              eventsToSchedule.add(e);
+            }
+          }
+          currentStart = currentEnd;
+        }
+
+        _loadedRangeKeys.add(rangeKey);
+        _sortList(_events);
+        _eventsByDay = _indexEventsByDay(_events);
+        if (scheduleReminders && eventsToSchedule.isNotEmpty) {
+          unawaited(_scheduleRemindersForEvents(eventsToSchedule));
+        }
+      } catch (e) {
+        _eventError = 'Failed to load events.';
+      } finally {
+        _rangeLoads.remove(rangeKey);
+        if (showLoading) _isLoadingEvents = false;
+        notifyListeners();
+      }
+    }();
+
+    _rangeLoads[rangeKey] = load;
+    await load;
   }
 
   Future<void> loadMeetings(String calendarId, {String? filter}) async {
@@ -482,8 +519,10 @@ class CalendarProvider extends ChangeNotifier {
       // Add to whichever cache is active so the UI reflects it immediately.
       _events.addAll(events);
       _monthEvents.addAll(events);
+      _sortBothLists();
+      _rebuildEventIndexes();
       for (final e in events) {
-        _scheduleReminderForEvent(e);
+        unawaited(_scheduleReminderForEvent(e));
       }
       notifyListeners();
       return events;
@@ -525,6 +564,7 @@ class CalendarProvider extends ChangeNotifier {
     _events.add(temp);
     _monthEvents.add(temp);
     _sortBothLists();
+    _rebuildEventIndexes();
     notifyListeners();
     return tempId;
   }
@@ -534,6 +574,7 @@ class CalendarProvider extends ChangeNotifier {
     _replaceInList(_monthEvents, tempId, event);
     _deduplicateBothLists();
     _sortBothLists();
+    _rebuildEventIndexes();
     notifyListeners();
   }
 
@@ -571,27 +612,23 @@ class CalendarProvider extends ChangeNotifier {
   }
 
   void _sortList(List<EventModel> list) {
-    list.sort((a, b) {
-      if (a.allDay && !b.allDay) return -1;
-      if (!a.allDay && b.allDay) return 1;
-      final aStart = a.startDateTime ?? DateTime.now();
-      final bStart = b.startDateTime ?? DateTime.now();
-      return aStart.compareTo(bStart);
-    });
+    list.sort(_compareEvents);
   }
 
   void removeEventById(String eventId) {
     _events.removeWhere((e) => e.id == eventId);
     _monthEvents.removeWhere((e) => e.id == eventId);
     _cancelReminderForEvent(eventId);
+    _rebuildEventIndexes();
     notifyListeners();
   }
 
   void upsertLocalEvent(EventModel event) {
     _upsertInList(_events, event);
     _upsertInList(_monthEvents, event);
-    _scheduleReminderForEvent(event);
+    unawaited(_scheduleReminderForEvent(event));
     _sortBothLists();
+    _rebuildEventIndexes();
     notifyListeners();
   }
 
@@ -604,7 +641,8 @@ class CalendarProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateEvent(String eventId, Map<String, dynamic> data, {String? scope}) async {
+  Future<bool> updateEvent(String eventId, Map<String, dynamic> data,
+      {String? scope}) async {
     final idxEvents = _events.indexWhere((e) => e.id == eventId);
     final idxMonth = _monthEvents.indexWhere((e) => e.id == eventId);
     EventModel? previous;
@@ -618,14 +656,16 @@ class CalendarProvider extends ChangeNotifier {
       previous ??= prev;
       _monthEvents[idxMonth] = _mergeEventPatch(prev, data);
     }
+    _rebuildEventIndexes();
     notifyListeners();
 
     try {
-      final updated =
-          await _eventRepo.updateEvent(eventId: eventId, data: data, scope: scope);
+      final updated = await _eventRepo.updateEvent(
+          eventId: eventId, data: data, scope: scope);
       if (idxEvents != -1) _events[idxEvents] = updated;
       if (idxMonth != -1) _monthEvents[idxMonth] = updated;
-      _scheduleReminderForEvent(updated);
+      _rebuildEventIndexes();
+      unawaited(_scheduleReminderForEvent(updated));
       notifyListeners();
       return true;
     } catch (_) {
@@ -635,6 +675,7 @@ class CalendarProvider extends ChangeNotifier {
       if (idxMonth != -1 && previous != null) {
         _monthEvents[idxMonth] = previous;
       }
+      _rebuildEventIndexes();
       notifyListeners();
       return false;
     }
@@ -651,6 +692,7 @@ class CalendarProvider extends ChangeNotifier {
     _events.removeWhere((e) => e.id == eventId);
     _monthEvents.removeWhere((e) => e.id == eventId);
     _cancelReminderForEvent(eventId);
+    _rebuildEventIndexes();
     notifyListeners();
 
     Future<void> action() async {
@@ -675,6 +717,7 @@ class CalendarProvider extends ChangeNotifier {
       _events.add(item!.event);
       _monthEvents.add(item.event);
       _sortBothLists();
+      _rebuildEventIndexes();
       notifyListeners();
     }
   }
@@ -686,7 +729,8 @@ class CalendarProvider extends ChangeNotifier {
       final idxMonth = _monthEvents.indexWhere((e) => e.id == eventId);
       if (idxEvents != -1) _events[idxEvents] = event;
       if (idxMonth != -1) _monthEvents[idxMonth] = event;
-      _scheduleReminderForEvent(event);
+      _rebuildEventIndexes();
+      unawaited(_scheduleReminderForEvent(event));
       notifyListeners();
       return event;
     } catch (_) {
@@ -747,11 +791,19 @@ class CalendarProvider extends ChangeNotifier {
     _selectedDate = date;
     _currentMonth = DateTime(date.year, date.month);
     if (_selectedCalendar != null) {
-      loadEventsForRange(
-        _selectedCalendar!.id,
-        date.subtract(const Duration(days: 3)),
-        date.add(const Duration(days: 4)),
-      );
+      notifyListeners();
+      if (_viewMode == CalendarViewMode.month) {
+        loadEventsForMonth(_selectedCalendar!.id, _currentMonth);
+      } else {
+        final day = DateTime(date.year, date.month, date.day);
+        final weekStart = day.subtract(Duration(days: day.weekday % 7));
+        loadEventsForRange(
+          _selectedCalendar!.id,
+          weekStart,
+          weekStart.add(const Duration(days: 7)),
+          showLoading: false,
+        );
+      }
     } else {
       notifyListeners();
     }
@@ -779,6 +831,76 @@ class CalendarProvider extends ChangeNotifier {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
+  String _monthCacheKey(String calendarId, DateTime month) =>
+      '$calendarId-${month.year}-${month.month}';
+
+  String _rangeCacheKey(String calendarId, DateTime start, DateTime end) {
+    final startDay = DateTime(start.year, start.month, start.day);
+    final endDay = DateTime(end.year, end.month, end.day);
+    return '$calendarId-${_dayKey(startDay)}-${_dayKey(endDay)}';
+  }
+
+  int _dayKey(DateTime date) => date.year * 10000 + date.month * 100 + date.day;
+
+  int _compareEvents(EventModel a, EventModel b) {
+    if (a.allDay && !b.allDay) return -1;
+    if (!a.allDay && b.allDay) return 1;
+    final aStart = a.startDateTime;
+    final bStart = b.startDateTime;
+    if (aStart == null && bStart == null) return a.id.compareTo(b.id);
+    if (aStart == null) return 1;
+    if (bStart == null) return -1;
+    final byStart = aStart.compareTo(bStart);
+    return byStart != 0 ? byStart : a.id.compareTo(b.id);
+  }
+
+  void _rebuildEventIndexes() {
+    _eventsByDay = _indexEventsByDay(_events);
+    _monthEventsByDay = _indexEventsByDay(_monthEvents);
+    final calendar = _selectedCalendar;
+    if (calendar != null && _viewMode == CalendarViewMode.month) {
+      final key = _monthCacheKey(calendar.id, _currentMonth);
+      _monthEventCache[key] = List<EventModel>.unmodifiable(_monthEvents);
+    }
+  }
+
+  Map<int, List<EventModel>> _indexEventsByDay(List<EventModel> source) {
+    if (source.isEmpty) return const {};
+
+    final index = <int, List<EventModel>>{};
+    for (final event in source) {
+      final start = event.startDateTime;
+      if (start == null) continue;
+
+      final end = event.endDateTime;
+      if (event.allDay || end == null || !end.isAfter(start)) {
+        (index[_dayKey(start)] ??= <EventModel>[]).add(event);
+        continue;
+      }
+
+      var day = DateTime(start.year, start.month, start.day);
+      final inclusiveEnd = end.subtract(const Duration(microseconds: 1));
+      final lastDay = DateTime(
+        inclusiveEnd.year,
+        inclusiveEnd.month,
+        inclusiveEnd.day,
+      );
+
+      while (!day.isAfter(lastDay)) {
+        (index[_dayKey(day)] ??= <EventModel>[]).add(event);
+        day = day.add(const Duration(days: 1));
+      }
+    }
+
+    for (final events in index.values) {
+      events.sort(_compareEvents);
+    }
+    return Map<int, List<EventModel>>.unmodifiable(
+      index.map(
+          (key, value) => MapEntry(key, List<EventModel>.unmodifiable(value))),
+    );
+  }
+
   EventModel _mergeEventPatch(EventModel event, Map<String, dynamic> data) {
     final startIso = data['startTime'] as String?;
     final endIso = data['endTime'] as String?;
@@ -799,6 +921,13 @@ class CalendarProvider extends ChangeNotifier {
   }
 
   static const Duration _localWindow = Duration(hours: 24);
+
+  Future<void> _scheduleRemindersForEvents(List<EventModel> events) async {
+    for (final event in events) {
+      await _scheduleReminderForEvent(event);
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
 
   Future<void> _scheduleReminderForEvent(EventModel event) async {
     if (event.startDateTime == null) return;

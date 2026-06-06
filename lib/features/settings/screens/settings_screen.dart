@@ -47,6 +47,36 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLinkingGoogle = false;
+  Map<String, dynamic>? _connectStatus;
+  bool _isLoadingConnects = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadConnectStatus();
+    });
+  }
+
+  Future<void> _loadConnectStatus() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user != null) {
+      try {
+        final api = ApiClient.instance;
+        final res = await api.get('/connects/user/${auth.user!.id}');
+        if (mounted) {
+          setState(() {
+            _connectStatus = res.data;
+            _isLoadingConnects = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) setState(() => _isLoadingConnects = false);
+      }
+    } else {
+      if (mounted) setState(() => _isLoadingConnects = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +127,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildBody(BuildContext context, UserModel user, AuthProvider auth) {
+    final isGoogleConnected = _connectStatus?['google'] == true;
+    final isZoomConnected = _connectStatus?['zoom'] == true;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: Column(
@@ -114,8 +147,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: _googleIcon(),
             title: 'Google Account',
             subtitle: 'Sync calendar & contacts',
-            buttonLabel: _isLinkingGoogle ? 'Loading...' : 'Connect',
+            buttonLabel: _isLinkingGoogle ? 'Loading...' : (isGoogleConnected ? 'Connected' : 'Connect'),
             buttonColor: const Color(0xFF4285F4),
+            disabled: isGoogleConnected || _isLinkingGoogle,
             onTap: _isLinkingGoogle ? () {} : () => _linkGoogleNative(user.id),
           ),
           const SizedBox(height: 10),
@@ -123,8 +157,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: _zoomIcon(),
             title: 'Zoom',
             subtitle: 'Schedule & join meetings',
-            buttonLabel: 'Connect',
+            buttonLabel: isZoomConnected ? 'Connected' : 'Connect',
             buttonColor: const Color(0xFF2D8CFF),
+            disabled: isZoomConnected,
             onTap: () => _linkZoom(user.id),
           ),
 
@@ -1061,6 +1096,7 @@ class _AccountLinkCard extends StatelessWidget {
   final String buttonLabel;
   final Color buttonColor;
   final VoidCallback onTap;
+  final bool disabled;
 
   const _AccountLinkCard({
     required this.icon,
@@ -1069,6 +1105,7 @@ class _AccountLinkCard extends StatelessWidget {
     required this.buttonLabel,
     required this.buttonColor,
     required this.onTap,
+    this.disabled = false,
   });
 
   @override
@@ -1095,10 +1132,14 @@ class _AccountLinkCard extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           TextButton(
-            onPressed: onTap,
+            onPressed: disabled ? null : onTap,
             style: TextButton.styleFrom(
-              backgroundColor: buttonColor.withValues(alpha: 0.12),
-              foregroundColor: buttonColor,
+              backgroundColor: disabled 
+                  ? _themeBorder(context) 
+                  : buttonColor.withValues(alpha: 0.12),
+              foregroundColor: disabled 
+                  ? _themeTextMuted(context)
+                  : buttonColor,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),

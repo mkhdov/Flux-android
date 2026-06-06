@@ -2,7 +2,7 @@
 // --dart-define=API_BASE_URL=https://api.flux-cal.com
 const String kBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'https://192.168.1.11',
+  defaultValue: 'https://10.55.65.215',
 );
 
 // Web Client ID for Google Auth (obtained from Google Cloud Console as Web Application Client ID)

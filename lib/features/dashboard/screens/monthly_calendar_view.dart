@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +12,8 @@ class MonthlyCalendarView extends StatefulWidget {
   final CalendarProvider provider;
   final GlobalKey<ScaffoldState>? scaffoldKey;
 
-  const MonthlyCalendarView({super.key, required this.provider, this.scaffoldKey});
+  const MonthlyCalendarView(
+      {super.key, required this.provider, this.scaffoldKey});
 
   @override
   State<MonthlyCalendarView> createState() => _MonthlyCalendarViewState();
@@ -128,7 +127,8 @@ class _MonthlyCalendarViewState extends State<MonthlyCalendarView>
 
     return Column(
       children: [
-        _MonthHeader(provider: provider, month: month, scaffoldKey: widget.scaffoldKey),
+        _MonthHeader(
+            provider: provider, month: month, scaffoldKey: widget.scaffoldKey),
         const _WeekdayHeader(),
         Expanded(
           child: GestureDetector(
@@ -183,14 +183,16 @@ class _MonthlyCalendarViewState extends State<MonthlyCalendarView>
                   child: Stack(
                     key: ValueKey('${month.year}-${month.month}'),
                     children: [
-                      _MonthGrid(
-                        cells: cells,
-                        rowCount: rowCount,
-                        provider: provider,
-                        onDayTap: (date, events) =>
-                            _openDaySheet(context, date, events),
-                        onEventTap: _openEventDetail,
-                        errorMessage: provider.eventError,
+                      RepaintBoundary(
+                        child: _MonthGrid(
+                          cells: cells,
+                          rowCount: rowCount,
+                          provider: provider,
+                          onDayTap: (date, events) =>
+                              _openDaySheet(context, date, events),
+                          onEventTap: _openEventDetail,
+                          errorMessage: provider.eventError,
+                        ),
                       ),
                       if (provider.isLoadingMonth)
                         const Positioned.fill(
@@ -223,8 +225,8 @@ class _MonthlyCalendarViewState extends State<MonthlyCalendarView>
     }
     for (var day = 1; day <= daysInMonth; day++) {
       final date = DateTime(month.year, month.month, day);
-      cells.add(
-          _MonthCell(date: date, inMonth: true, isToday: _sameDay(date, today)));
+      cells.add(_MonthCell(
+          date: date, inMonth: true, isToday: _sameDay(date, today)));
     }
     var nextDay = 1;
     while (cells.length < total) {
@@ -322,7 +324,6 @@ class _MonthGrid extends StatelessWidget {
   final String? errorMessage;
 
   const _MonthGrid({
-    super.key,
     required this.cells,
     required this.rowCount,
     required this.provider,
@@ -337,8 +338,7 @@ class _MonthGrid extends StatelessWidget {
       children: [
         LayoutBuilder(builder: (context, constraints) {
           const minRowHeight = 88.0;
-          final naturalRowHeight =
-              (constraints.maxHeight - 8) / rowCount;
+          final naturalRowHeight = (constraints.maxHeight - 8) / rowCount;
           final rowHeight =
               naturalRowHeight < minRowHeight ? minRowHeight : naturalRowHeight;
           final totalHeight = rowHeight * rowCount + 8;
@@ -357,8 +357,7 @@ class _MonthGrid extends StatelessWidget {
                       height: rowHeight,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children:
-                            List.generate(7, (colIndex) {
+                        children: List.generate(7, (colIndex) {
                           final cellIndex = rowIndex * 7 + colIndex;
                           if (cellIndex >= cells.length) {
                             return const Expanded(child: SizedBox.shrink());
@@ -404,7 +403,8 @@ class _MonthHeader extends StatelessWidget {
   final DateTime month;
   final GlobalKey<ScaffoldState>? scaffoldKey;
 
-  const _MonthHeader({required this.provider, required this.month, this.scaffoldKey});
+  const _MonthHeader(
+      {required this.provider, required this.month, this.scaffoldKey});
 
   @override
   Widget build(BuildContext context) {
@@ -560,8 +560,9 @@ class _MonthDayCell extends StatelessWidget {
     final maxChips = ((availableH + chipGap) / (chipH + chipGap)).floor();
     final showMax = maxChips > 0 ? maxChips : 1;
     final overflow = events.length > showMax ? events.length - showMax + 1 : 0;
-    final chipsToShow =
-        overflow > 0 ? events.take(showMax - 1).toList() : events.take(showMax).toList();
+    final chipsToShow = overflow > 0
+        ? events.take(showMax - 1).toList()
+        : events.take(showMax).toList();
 
     final isWeekend = cell.date.weekday == DateTime.saturday ||
         cell.date.weekday == DateTime.sunday;
@@ -572,13 +573,12 @@ class _MonthDayCell extends StatelessWidget {
     final cellBg = cell.isToday
         ? AppColors.primary.withValues(alpha: 0.08)
         : isWeekend
-            ? const Color(0xFF181818)  // very slightly warm for weekends
+            ? const Color(0xFF181818) // very slightly warm for weekends
             : const Color(0xFF141414); // neutral dark for weekdays
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+      child: Container(
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: cellBg,

@@ -28,7 +28,8 @@ class TaskView extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(Icons.menu, color: AppColors.adaptiveTextSecondary(context)),
+            icon: Icon(Icons.menu,
+                color: AppColors.adaptiveTextSecondary(context)),
             onPressed: () => scaffoldKey?.currentState?.openDrawer(),
           ),
           Expanded(
@@ -45,7 +46,8 @@ class TaskView extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.refresh_rounded,
                   color: AppColors.adaptiveTextSecondary(context), size: 22),
-              onPressed: () => context.read<TaskProvider>()
+              onPressed: () => context
+                  .read<TaskProvider>()
                   .fetchTasks(calProvider.selectedCalendar!.id),
             ),
         ],
@@ -63,11 +65,19 @@ class TaskView extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.calendar_today_outlined, color: AppColors.textMuted, size: 48),
+                    const Icon(Icons.calendar_today_outlined,
+                        color: AppColors.textMuted, size: 48),
                     const SizedBox(height: 16),
-                    Text('No calendar selected', style: GoogleFonts.roboto(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
+                    Text('No calendar selected',
+                        style: GoogleFonts.roboto(
+                            color: AppColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    Text('Select a calendar from the menu to view its tasks.', textAlign: TextAlign.center, style: GoogleFonts.roboto(color: AppColors.textMuted, fontSize: 14)),
+                    Text('Select a calendar from the menu to view its tasks.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.roboto(
+                            color: AppColors.textMuted, fontSize: 14)),
                   ],
                 ),
               ),
@@ -88,11 +98,13 @@ class TaskView extends StatelessWidget {
         // Content
         Expanded(
           child: taskProvider.isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary))
               : taskProvider.error != null
                   ? _ErrorState(msg: taskProvider.error!)
                   : taskProvider.filteredTasks.isEmpty
-                      ? _EmptyState(calendarId: calProvider.selectedCalendar!.id)
+                      ? _EmptyState(
+                          calendarId: calProvider.selectedCalendar!.id)
                       : _TaskList(provider: taskProvider),
         ),
       ],
@@ -115,15 +127,21 @@ class _Toolbar extends StatelessWidget {
           Expanded(
             child: TextField(
               onChanged: provider.setSearchQuery,
-              style: GoogleFonts.roboto(color: AppColors.textPrimary, fontSize: 14),
+              style: GoogleFonts.roboto(
+                  color: AppColors.textPrimary, fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Search tasks…',
-                hintStyle: GoogleFonts.roboto(color: AppColors.textDisabled, fontSize: 14),
-                prefixIcon: const Icon(Icons.search, color: AppColors.textMuted, size: 18),
+                hintStyle: GoogleFonts.roboto(
+                    color: AppColors.textDisabled, fontSize: 14),
+                prefixIcon: const Icon(Icons.search,
+                    color: AppColors.textMuted, size: 18),
                 filled: true,
                 fillColor: const Color(0xFF2A2A2C),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 isDense: true,
               ),
             ),
@@ -135,7 +153,8 @@ class _Toolbar extends StatelessWidget {
               context: context,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
-              builder: (_) => CreateTaskSheet(calendarId: calProvider.selectedCalendar!.id),
+              builder: (_) =>
+                  CreateTaskSheet(calendarId: calProvider.selectedCalendar!.id),
             ),
             child: Container(
               width: 40,
@@ -162,7 +181,11 @@ class _StatusTabs extends StatelessWidget {
     final tabs = [
       (null, 'All', provider.counts['ALL'] ?? 0),
       (TaskStatus.todo, 'To Do', provider.counts['TODO'] ?? 0),
-      (TaskStatus.inProgress, 'In Progress', provider.counts['IN_PROGRESS'] ?? 0),
+      (
+        TaskStatus.inProgress,
+        'In Progress',
+        provider.counts['IN_PROGRESS'] ?? 0
+      ),
       (TaskStatus.done, 'Done', provider.counts['DONE'] ?? 0),
     ];
 
@@ -178,9 +201,12 @@ class _StatusTabs extends StatelessWidget {
             child: GestureDetector(
               onTap: () => provider.setStatusFilter(status),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isActive ? AppColors.primary.withOpacity(0.15) : const Color(0xFF2A2A2C),
+                  color: isActive
+                      ? AppColors.primary.withOpacity(0.15)
+                      : const Color(0xFF2A2A2C),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isActive ? AppColors.primary : Colors.transparent,
@@ -204,19 +230,29 @@ class _StatusTabs extends StatelessWidget {
                       style: GoogleFonts.roboto(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: isActive ? AppColors.primary : AppColors.textSecondary,
+                        color: isActive
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
-                        color: isActive ? AppColors.primary.withOpacity(0.2) : const Color(0xFF3A3A3C),
+                        color: isActive
+                            ? AppColors.primary.withOpacity(0.2)
+                            : const Color(0xFF3A3A3C),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         count.toString(),
-                        style: GoogleFonts.roboto(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? AppColors.primary : AppColors.textMuted),
+                        style: GoogleFonts.roboto(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isActive
+                                ? AppColors.primary
+                                : AppColors.textMuted),
                       ),
                     ),
                   ],
@@ -244,8 +280,9 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Text(msg, style: GoogleFonts.roboto(color: AppColors.error, fontSize: 14)),
-  );
+        child: Text(msg,
+            style: GoogleFonts.roboto(color: AppColors.error, fontSize: 14)),
+      );
 }
 
 class _EmptyState extends StatelessWidget {
@@ -258,11 +295,18 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.check_box_outlined, color: AppColors.textMuted, size: 48),
+          const Icon(Icons.check_box_outlined,
+              color: AppColors.textMuted, size: 48),
           const SizedBox(height: 12),
-          Text('No tasks found', style: GoogleFonts.roboto(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
+          Text('No tasks found',
+              style: GoogleFonts.roboto(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Text('Try adjusting filters or create a new task.', style: GoogleFonts.roboto(color: AppColors.textMuted, fontSize: 14)),
+          Text('Try adjusting filters or create a new task.',
+              style:
+                  GoogleFonts.roboto(color: AppColors.textMuted, fontSize: 14)),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: () => showModalBottomSheet(
@@ -302,16 +346,16 @@ class _TaskCard extends StatelessWidget {
   const _TaskCard({required this.task, required this.provider});
 
   Color _priorityColor(TaskPriority p) => switch (p) {
-    TaskPriority.high => AppColors.priorityHigh,
-    TaskPriority.medium => AppColors.priorityMedium,
-    TaskPriority.low => AppColors.priorityLow,
-  };
+        TaskPriority.high => AppColors.priorityHigh,
+        TaskPriority.medium => AppColors.priorityMedium,
+        TaskPriority.low => AppColors.priorityLow,
+      };
 
   Color _statusDotColor(TaskStatus s) => switch (s) {
-    TaskStatus.todo => AppColors.statusTodo,
-    TaskStatus.inProgress => AppColors.statusInProgress,
-    TaskStatus.done => AppColors.statusDone,
-  };
+        TaskStatus.todo => AppColors.statusTodo,
+        TaskStatus.inProgress => AppColors.statusInProgress,
+        TaskStatus.done => AppColors.statusDone,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -330,110 +374,129 @@ class _TaskCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFF2D2D2D)),
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Priority stripe
-              Container(
-                width: 4,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: _priorityColor(task.priority),
-                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.horizontal(left: Radius.circular(12)),
                 ),
               ),
-              // Card body
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top row: badges + quick action
-                      Row(
-                        children: [
-                          _Pill(
-                            label: task.status.label,
-                            dotColor: _statusDotColor(task.status),
-                            color: _statusDotColor(task.status).withOpacity(0.15),
-                            textColor: _statusDotColor(task.status),
-                          ),
-                          const SizedBox(width: 6),
-                          _Pill(
-                            label: task.priority.label,
-                            color: _priorityColor(task.priority).withOpacity(0.15),
-                            textColor: _priorityColor(task.priority),
-                          ),
-                          const Spacer(),
-                          // Quick status button
-                          _QuickStatusButton(task: task, provider: provider),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      // Title
-                      Text(
-                        task.title,
-                        style: GoogleFonts.roboto(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isDone ? AppColors.textMuted : AppColors.textPrimary,
-                          decoration: isDone ? TextDecoration.lineThrough : null,
-                          decorationColor: AppColors.textMuted,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 0, 0),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top row: badges + quick action
+                    Row(
+                      children: [
+                        _Pill(
+                          label: task.status.label,
+                          dotColor: _statusDotColor(task.status),
+                          color: _statusDotColor(task.status).withOpacity(0.15),
+                          textColor: _statusDotColor(task.status),
                         ),
+                        const SizedBox(width: 6),
+                        _Pill(
+                          label: task.priority.label,
+                          color:
+                              _priorityColor(task.priority).withOpacity(0.15),
+                          textColor: _priorityColor(task.priority),
+                        ),
+                        const Spacer(),
+                        // Quick status button
+                        _QuickStatusButton(task: task, provider: provider),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Title
+                    Text(
+                      task.title,
+                      style: GoogleFonts.roboto(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isDone
+                            ? AppColors.textMuted
+                            : AppColors.textPrimary,
+                        decoration: isDone ? TextDecoration.lineThrough : null,
+                        decorationColor: AppColors.textMuted,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (task.description != null &&
+                        task.description!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        task.description!,
+                        style: GoogleFonts.roboto(
+                            fontSize: 12, color: AppColors.textMuted),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (task.description != null && task.description!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          task.description!,
-                          style: GoogleFonts.roboto(fontSize: 12, color: AppColors.textMuted),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      // Subtask progress
-                      if (task.subtasks.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(3),
-                                child: LinearProgressIndicator(
-                                  value: task.subtaskProgress,
-                                  backgroundColor: const Color(0xFF3A3A3C),
-                                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                                  minHeight: 4,
-                                ),
+                    ],
+                    // Subtask progress
+                    if (task.subtasks.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: LinearProgressIndicator(
+                                value: task.subtaskProgress,
+                                backgroundColor: const Color(0xFF3A3A3C),
+                                valueColor:
+                                    AlwaysStoppedAnimation(AppColors.primary),
+                                minHeight: 4,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${task.subtaskDone}/${task.subtasks.length}',
-                              style: GoogleFonts.roboto(fontSize: 11, color: AppColors.textMuted),
-                            ),
-                          ],
-                        ),
-                      ],
-                      // Footer chips
-                      if (task.date != null || task.deadline != null || task.notes.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          children: [
-                            if (task.date != null) _Chip(icon: Icons.calendar_today, text: _fmtDate(task.date!)),
-                            if (task.deadline != null) _DeadlineChip(deadline: task.deadline!),
-                            if (task.notes.isNotEmpty) _Chip(icon: Icons.notes, text: '${task.notes.length} note${task.notes.length != 1 ? "s" : ""}'),
-                          ],
-                        ),
-                      ],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${task.subtaskDone}/${task.subtasks.length}',
+                            style: GoogleFonts.roboto(
+                                fontSize: 11, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
                     ],
-                  ),
+                    // Footer chips
+                    if (task.date != null ||
+                        task.deadline != null ||
+                        task.notes.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          if (task.date != null)
+                            _Chip(
+                                icon: Icons.calendar_today,
+                                text: _fmtDate(task.date!)),
+                          if (task.deadline != null)
+                            _DeadlineChip(deadline: task.deadline!),
+                          if (task.notes.isNotEmpty)
+                            _Chip(
+                                icon: Icons.notes,
+                                text:
+                                    '${task.notes.length} note${task.notes.length != 1 ? "s" : ""}'),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -467,7 +530,8 @@ class _QuickStatusButton extends StatelessWidget {
             color: AppColors.statusDone.withOpacity(0.15),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.replay_rounded, color: AppColors.statusDone, size: 14),
+          child: const Icon(Icons.replay_rounded,
+              color: AppColors.statusDone, size: 14),
         ),
       );
     }
@@ -475,7 +539,9 @@ class _QuickStatusButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => provider.quickStatus(
         task.id,
-        task.status == TaskStatus.todo ? TaskStatus.inProgress : TaskStatus.done,
+        task.status == TaskStatus.todo
+            ? TaskStatus.inProgress
+            : TaskStatus.done,
       ),
       child: Container(
         width: 28,
@@ -485,7 +551,9 @@ class _QuickStatusButton extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(
-          task.status == TaskStatus.todo ? Icons.play_arrow_rounded : Icons.check_rounded,
+          task.status == TaskStatus.todo
+              ? Icons.play_arrow_rounded
+              : Icons.check_rounded,
           color: AppColors.primary,
           size: 14,
         ),
@@ -500,21 +568,32 @@ class _Pill extends StatelessWidget {
   final Color color;
   final Color textColor;
 
-  const _Pill({required this.label, this.dotColor, required this.color, required this.textColor});
+  const _Pill(
+      {required this.label,
+      this.dotColor,
+      required this.color,
+      required this.textColor});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (dotColor != null) ...[
-            Container(width: 5, height: 5, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+            Container(
+                width: 5,
+                height: 5,
+                decoration:
+                    BoxDecoration(color: dotColor, shape: BoxShape.circle)),
             const SizedBox(width: 4),
           ],
-          Text(label, style: GoogleFonts.roboto(fontSize: 11, fontWeight: FontWeight.w500, color: textColor)),
+          Text(label,
+              style: GoogleFonts.roboto(
+                  fontSize: 11, fontWeight: FontWeight.w500, color: textColor)),
         ],
       ),
     );
@@ -533,7 +612,9 @@ class _Chip extends StatelessWidget {
       children: [
         Icon(icon, size: 11, color: AppColors.textMuted),
         const SizedBox(width: 3),
-        Text(text, style: GoogleFonts.roboto(fontSize: 11, color: AppColors.textMuted)),
+        Text(text,
+            style:
+                GoogleFonts.roboto(fontSize: 11, color: AppColors.textMuted)),
       ],
     );
   }
@@ -547,10 +628,10 @@ class _DeadlineChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final dt = DateTime.tryParse(deadline)?.toLocal();
     if (dt == null) return const SizedBox.shrink();
-    
+
     final diff = dt.difference(DateTime.now());
     final days = diff.inDays;
-    
+
     String text;
     Color color;
     if (days < 0) {
@@ -572,7 +653,9 @@ class _DeadlineChip extends StatelessWidget {
       children: [
         Icon(Icons.timer_outlined, size: 11, color: color),
         const SizedBox(width: 3),
-        Text(text, style: GoogleFonts.roboto(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+        Text(text,
+            style: GoogleFonts.roboto(
+                fontSize: 11, color: color, fontWeight: FontWeight.w500)),
       ],
     );
   }

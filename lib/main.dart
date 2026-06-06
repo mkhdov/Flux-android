@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -133,17 +135,9 @@ void main() async {
   // Set the background handler as early as possible
   FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
 
-  // Initialize local scheduled notifications
-  final notificationService = NotificationService();
-  await notificationService.init();
-  await notificationService.requestPermissions();
-
   // Wire up notification tap navigation
   NotificationService.onNotificationTap = openEventDetail;
   FcmService.onNotificationTap = openEventDetail;
-
-  // Initialize Firebase Cloud Messaging (remote push from backend)
-  await FcmService.instance.init();
 
   // Initialize AuthProvider for global auth state
   final authProvider = AuthProvider(AuthRepository());
@@ -166,6 +160,17 @@ void main() async {
       child: const FluxApp(),
     ),
   );
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_initializeMessaging());
+  });
+}
+
+Future<void> _initializeMessaging() async {
+  final notificationService = NotificationService();
+  await notificationService.init();
+  await notificationService.requestPermissions();
+  await FcmService.instance.init();
 }
 
 class FluxApp extends StatelessWidget {

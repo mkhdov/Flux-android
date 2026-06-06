@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import '../../calendar/providers/calendar_provider.dart';
 import '../../calendar/models/event_model.dart';
 import '../../calendar/widgets/event_detail_sheet.dart';
@@ -21,8 +20,7 @@ class _LayoutInfo {
 class _Draft {
   int startMins;
   int durationMins;
-  String title;
-  _Draft({required this.startMins, required this.durationMins, this.title = ''});
+  _Draft({required this.startMins, required this.durationMins});
 }
 
 // ─── Drag state ───────────────────────────────────────────────────────────────
@@ -44,8 +42,6 @@ class _DragState {
   });
 }
 
-
-
 // ═══════════════════════════════════════════════════════════════════════════════
 class DailyScheduleGrid extends StatefulWidget {
   final DateTime date;
@@ -57,10 +53,13 @@ class DailyScheduleGrid extends StatefulWidget {
   final void Function(EventModel event, int newStartMinutes)? onEventMoved;
 
   /// Called when user finishes resizing an event
-  final void Function(EventModel event, int newStartMinutes, int newDurationMinutes)? onEventResized;
+  final void Function(
+          EventModel event, int newStartMinutes, int newDurationMinutes)?
+      onEventResized;
 
   /// Called when user confirms the draft (quick create)
-  final Future<bool> Function(String title, int startMinutes, int durationMinutes)? onDraftConfirmed;
+  final Future<bool> Function(
+      String title, int startMinutes, int durationMinutes)? onDraftConfirmed;
 
   const DailyScheduleGrid({
     super.key,
@@ -79,26 +78,28 @@ class DailyScheduleGrid extends StatefulWidget {
 
 class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   // ─── Constants ──────────────────────────────────────────────────────────────
-  static const double _hourH      = 64.0;
-  static const double _timeColW   = 56.0;
-  static const double _rPad       = 8.0;
-  static const double _colGap     = 3.0;
-  static const int    _snapMins   = 15;
-  static const int    _totalHours = 24;
+  static const double _hourH = 64.0;
+  static const double _timeColW = 56.0;
+  static const double _rPad = 8.0;
+  static const double _colGap = 3.0;
+  static const int _snapMins = 15;
+  static const int _totalHours = 24;
 
   // ─── Controllers ────────────────────────────────────────────────────────────
   final ScrollController _scroll = ScrollController();
   final TextEditingController _draftCtrl = TextEditingController();
   final FocusNode _draftFocus = FocusNode();
+  late final List<Widget> _hourRows;
+  late final List<Widget> _halfLines;
 
   // ─── Event drag ─────────────────────────────────────────────────────────────
   _DragState? _drag;
   final Map<String, int> _startOvr = {};
-  final Map<String, int> _durOvr   = {};
+  final Map<String, int> _durOvr = {};
 
   // ─── Draft ──────────────────────────────────────────────────────────────────
   _Draft? _draft;
-  bool _isSubmittingDraft = false;
+  final bool _isSubmittingDraft = false;
 
   // ─── Current time ticker ────────────────────────────────────────────────────
   late final Stream<DateTime> _clockStream;
@@ -106,7 +107,10 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   @override
   void initState() {
     super.initState();
-    _clockStream = Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
+    _clockStream =
+        Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
+    _hourRows = _buildHourRows();
+    _halfLines = _buildHalfLines();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToNow());
   }
 
@@ -129,8 +133,9 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   // ─── Scroll ─────────────────────────────────────────────────────────────────
   void _scrollToNow() {
     if (!_scroll.hasClients) return;
-    final now  = DateTime.now();
-    final topY = (_minsToY(now.hour * 60 + now.minute) - 80).clamp(0.0, double.infinity);
+    final now = DateTime.now();
+    final topY =
+        (_minsToY(now.hour * 60 + now.minute) - 80).clamp(0.0, double.infinity);
     _scroll.animateTo(
       topY.clamp(0, _scroll.position.maxScrollExtent),
       duration: const Duration(milliseconds: 500),
@@ -139,18 +144,20 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   }
 
   // ─── Coordinate helpers ─────────────────────────────────────────────────────
-  double _minsToY(int mins)   => (mins / 60.0) * _hourH;
-  int    _snapToGrid(double m) => ((m / _snapMins).round() * _snapMins).clamp(0, 24 * 60).toInt();
-  int    _yToMins(double y)    => _snapToGrid((y / _hourH) * 60);
+  double _minsToY(int mins) => (mins / 60.0) * _hourH;
+  int _snapToGrid(double m) =>
+      ((m / _snapMins).round() * _snapMins).clamp(0, 24 * 60).toInt();
+  int _yToMins(double y) => _snapToGrid((y / _hourH) * 60);
 
   int _clampStart(int start, int dur) => start.clamp(0, 24 * 60 - dur);
-  int _clampEnd(int end, int fs)      => end.clamp(fs + _snapMins, 24 * 60);
+  int _clampEnd(int end, int fs) => end.clamp(fs + _snapMins, 24 * 60);
 
-  int _snapHalf(double mins) => ((mins / 30).floor() * 30).clamp(0, 23 * 60).toInt();
+  int _snapHalf(double mins) =>
+      ((mins / 30).floor() * 30).clamp(0, 23 * 60).toInt();
 
   int _deltaToMins(double globalY, double startGlobalY, int origMins) {
-    final deltaY    = globalY - startGlobalY;
-    final rawMins   = origMins + (deltaY / _hourH) * 60;
+    final deltaY = globalY - startGlobalY;
+    final rawMins = origMins + (deltaY / _hourH) * 60;
     return _snapToGrid(rawMins);
   }
 
@@ -158,7 +165,8 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   int _evStart(EventModel ev) {
     if (_startOvr.containsKey(ev.id)) return _startOvr[ev.id]!;
     if (ev.startDateTime == null) return 0;
-    final dayStart = DateTime(widget.date.year, widget.date.month, widget.date.day);
+    final dayStart =
+        DateTime(widget.date.year, widget.date.month, widget.date.day);
     if (ev.startDateTime!.isBefore(dayStart)) return 0;
     return ev.startDateTime!.hour * 60 + ev.startDateTime!.minute;
   }
@@ -166,12 +174,19 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   int _evDur(EventModel ev) {
     if (_durOvr.containsKey(ev.id)) return _durOvr[ev.id]!;
     if (ev.startDateTime == null) return 60;
-    final dayStart = DateTime(widget.date.year, widget.date.month, widget.date.day);
+    final dayStart =
+        DateTime(widget.date.year, widget.date.month, widget.date.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
-    final actualStart = ev.startDateTime!.isBefore(dayStart) ? dayStart : ev.startDateTime!;
-    final actualEnd   = (ev.endDateTime == null || ev.endDateTime!.isAfter(dayEnd)) ? dayEnd : ev.endDateTime!;
+    final actualStart =
+        ev.startDateTime!.isBefore(dayStart) ? dayStart : ev.startDateTime!;
+    final actualEnd =
+        (ev.endDateTime == null || ev.endDateTime!.isAfter(dayEnd))
+            ? dayEnd
+            : ev.endDateTime!;
     final sMins = actualStart.hour * 60 + actualStart.minute;
-    final eMins = (actualEnd.isAtSameMomentAs(dayEnd)) ? 24 * 60 : actualEnd.hour * 60 + actualEnd.minute;
+    final eMins = (actualEnd.isAtSameMomentAs(dayEnd))
+        ? 24 * 60
+        : actualEnd.hour * 60 + actualEnd.minute;
     return (eMins - sMins).clamp(5, 24 * 60);
   }
 
@@ -198,10 +213,10 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
     if (timed.isEmpty) return result;
 
     final sorted = [...timed]..sort((a, b) {
-      final s = _evStart(a).compareTo(_evStart(b));
-      if (s != 0) return s;
-      return _layoutEndMins(b).compareTo(_layoutEndMins(a));
-    });
+        final s = _evStart(a).compareTo(_evStart(b));
+        if (s != 0) return s;
+        return _layoutEndMins(b).compareTo(_layoutEndMins(a));
+      });
 
     List<List<EventModel>> clusters = [];
     List<EventModel> currentCluster = [];
@@ -269,18 +284,22 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   }
 
   void _cancelDraft() {
-    setState(() { _draft = null; });
+    setState(() {
+      _draft = null;
+    });
     _draftCtrl.clear();
   }
 
   Future<void> _confirmDraft() async {
     if (_draft == null) return;
-    final title = _draftCtrl.text.trim().isEmpty ? 'New Event' : _draftCtrl.text.trim();
+    final title =
+        _draftCtrl.text.trim().isEmpty ? 'New Event' : _draftCtrl.text.trim();
     final dStart = _draft!.startMins;
     final dDur = _draft!.durationMins;
-    
-    setState(() => _draft = null); // Erase inline draft instantly; delegate entirely to optimistic sync
-    
+
+    setState(() => _draft =
+        null); // Erase inline draft instantly; delegate entirely to optimistic sync
+
     final cb = widget.onDraftConfirmed;
     if (cb != null) {
       final ok = await cb(title, dStart, dDur);
@@ -305,11 +324,13 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
 
   @override
   Widget build(BuildContext context) {
-    final now      = DateTime.now();
-    final isToday  = widget.date.year  == now.year  && widget.date.month == now.month  && widget.date.day   == now.day;
-    final allDay   = widget.events.where((e) => e.allDay).toList();
-    final timed    = widget.events.where((e) => !e.allDay).toList();
-    final layout   = _computeLayout(timed);
+    final now = DateTime.now();
+    final isToday = widget.date.year == now.year &&
+        widget.date.month == now.month &&
+        widget.date.day == now.day;
+    final allDay = widget.events.where((e) => e.allDay).toList();
+    final timed = widget.events.where((e) => !e.allDay).toList();
+    final layout = _computeLayout(timed);
     return Column(
       children: [
         if (allDay.isNotEmpty) _buildAllDayStrip(allDay),
@@ -320,7 +341,9 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
               if (widget.provider.isLoadingEvents)
                 Container(
                   color: Colors.black.withOpacity(0.3),
-                  child: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  child: const Center(
+                      child:
+                          CircularProgressIndicator(color: AppColors.primary)),
                 ),
             ],
           ),
@@ -331,7 +354,9 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
 
   Widget _buildAllDayStrip(List<EventModel> events) {
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFF121212), border: Border(bottom: BorderSide(color: Color(0xFF1C2030)))),
+      decoration: const BoxDecoration(
+          color: Color(0xFF121212),
+          border: Border(bottom: BorderSide(color: Color(0xFF1C2030)))),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -339,10 +364,22 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
             width: _timeColW,
             child: Padding(
               padding: const EdgeInsets.only(right: 10, top: 9),
-              child: Text('ALL\nDAY', textAlign: TextAlign.right, style: GoogleFonts.dmMono(fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.06, color: const Color(0xFF3E4A5E), height: 1.4)),
+              child: Text('ALL\nDAY',
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.dmMono(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.06,
+                      color: const Color(0xFF3E4A5E),
+                      height: 1.4)),
             ),
           ),
-          Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(0, 6, 8, 6), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: events.map(_buildAllDayChip).toList()))),
+          Expanded(
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 6, 8, 6),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: events.map(_buildAllDayChip).toList()))),
         ],
       ),
     );
@@ -372,11 +409,15 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
                 ),
                 child: Row(
                   children: [
-                    SizedBox(width: accentW, height: 28, child: ColoredBox(color: c)),
+                    SizedBox(
+                        width: accentW,
+                        height: 28,
+                        child: ColoredBox(color: c)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: padH, vertical: padV),
                         child: Row(
                           children: [
                             EventUi.statusDot(ev.status, size: 6.5),
@@ -384,7 +425,10 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
                             Expanded(
                               child: Text(
                                 ev.displayTitle,
-                                style: GoogleFonts.roboto(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                style: GoogleFonts.roboto(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -403,39 +447,55 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
     );
   }
 
-  Widget _buildGrid(List<EventModel> timed, Map<String, _LayoutInfo> layout, bool isToday, DateTime now) {
-    return StreamBuilder<DateTime>(
-      stream: _clockStream,
-      initialData: now,
-      builder: (context, snap) {
-        final currentNow = snap.data ?? now;
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            // Must match the scroll viewport width — not MediaQuery.screenWidth (prevents horizontal misalignment / clipping).
-            final gridW = constraints.maxWidth;
-            return SingleChildScrollView(
-              controller: _scroll,
-              physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-              child: SizedBox(
-                width: gridW,
-                height: _totalHours * _hourH,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTapUp: _onGridTapUp,
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      ..._buildHourRows(),
-                      ..._buildHalfLines(),
-                      ...timed.map((ev) => _buildEventPositioned(ev, layout[ev.id]!, isToday, currentNow, gridW)),
-                      if (_draft != null) _buildDraftPositioned(gridW),
-                      if (isToday) _buildNowLine(currentNow),
-                    ],
+  Widget _buildGrid(List<EventModel> timed, Map<String, _LayoutInfo> layout,
+      bool isToday, DateTime now) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Must match the scroll viewport width — not MediaQuery.screenWidth (prevents horizontal misalignment / clipping).
+        final gridW = constraints.maxWidth;
+        return SingleChildScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics()),
+          child: SizedBox(
+            width: gridW,
+            height: _totalHours * _hourH,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTapUp: _onGridTapUp,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  RepaintBoundary(
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        ..._hourRows,
+                        ..._halfLines,
+                        ...timed.map(
+                          (ev) => _buildEventPositioned(
+                            ev,
+                            layout[ev.id]!,
+                            isToday,
+                            now,
+                            gridW,
+                          ),
+                        ),
+                        if (_draft != null) _buildDraftPositioned(gridW),
+                      ],
+                    ),
                   ),
-                ),
+                  if (isToday)
+                    StreamBuilder<DateTime>(
+                      stream: _clockStream,
+                      initialData: now,
+                      builder: (context, snap) =>
+                          _buildNowLine(snap.data ?? now),
+                    ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );
@@ -445,12 +505,24 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
     return List.generate(_totalHours, (i) {
       final String label;
       final String ampm;
-      if (i == 0) { label = '12:00'; ampm = 'am'; }
-      else if (i < 12) { label = '$i:00'; ampm = 'am'; }
-      else if (i == 12) { label = '12:00'; ampm = 'pm'; }
-      else { label = '${i - 12}:00'; ampm = 'pm'; }
+      if (i == 0) {
+        label = '12:00';
+        ampm = 'am';
+      } else if (i < 12) {
+        label = '$i:00';
+        ampm = 'am';
+      } else if (i == 12) {
+        label = '12:00';
+        ampm = 'pm';
+      } else {
+        label = '${i - 12}:00';
+        ampm = 'pm';
+      }
       return Positioned(
-        top: i * _hourH, left: 0, right: 0, height: _hourH,
+        top: i * _hourH,
+        left: 0,
+        right: 0,
+        height: _hourH,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -463,14 +535,27 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
                   child: RichText(
                     textAlign: TextAlign.right,
                     text: TextSpan(children: [
-                      TextSpan(text: label, style: GoogleFonts.dmMono(fontSize: 11, color: const Color(0xFF3E4A5E))),
-                      TextSpan(text: ampm, style: GoogleFonts.dmMono(fontSize: 9, color: const Color(0xFF3E4A5E))),
+                      TextSpan(
+                          text: label,
+                          style: GoogleFonts.dmMono(
+                              fontSize: 11, color: const Color(0xFF3E4A5E))),
+                      TextSpan(
+                          text: ampm,
+                          style: GoogleFonts.dmMono(
+                              fontSize: 9, color: const Color(0xFF3E4A5E))),
                     ]),
                   ),
                 ),
               ),
             ),
-            Expanded(child: i == 0 ? const SizedBox.expand() : Container(decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF1C2030), width: 1))))),
+            Expanded(
+                child: i == 0
+                    ? const SizedBox.expand()
+                    : Container(
+                        decoration: const BoxDecoration(
+                            border: Border(
+                                top: BorderSide(
+                                    color: Color(0xFF1C2030), width: 1))))),
           ],
         ),
       );
@@ -478,76 +563,202 @@ class _DailyScheduleGridState extends State<DailyScheduleGrid> {
   }
 
   List<Widget> _buildHalfLines() {
-    return List.generate(_totalHours, (i) => Positioned(top: i * _hourH + _hourH / 2, left: _timeColW, right: 0, child: Container(height: 1, color: const Color(0xFF15181F))));
+    return List.generate(
+        _totalHours,
+        (i) => Positioned(
+            top: i * _hourH + _hourH / 2,
+            left: _timeColW,
+            right: 0,
+            child: Container(height: 1, color: const Color(0xFF15181F))));
   }
 
   Widget _buildNowLine(DateTime now) {
     final mins = now.hour * 60 + now.minute;
     return Positioned(
-      top: _minsToY(mins) - 4, left: _timeColW - 4, right: 0,
+      top: _minsToY(mins) - 4,
+      left: _timeColW - 4,
+      right: 0,
       child: Row(
         children: [
-          Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle)),
-          Expanded(child: Container(height: 1.5, color: const Color(0xFFEF4444).withOpacity(0.55))),
+          Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                  color: Color(0xFFEF4444), shape: BoxShape.circle)),
+          Expanded(
+              child: Container(
+                  height: 1.5,
+                  color: const Color(0xFFEF4444).withOpacity(0.55))),
         ],
       ),
     );
   }
 
-  Widget _buildEventPositioned(EventModel ev, _LayoutInfo info, bool isToday, DateTime now, double gridWidth) {
+  Widget _buildEventPositioned(EventModel ev, _LayoutInfo info, bool isToday,
+      DateTime now, double gridWidth) {
     final startMins = _evStart(ev), durMins = _evDur(ev);
-    final top = _minsToY(startMins), rawH = (durMins / 60.0) * _hourH, height = rawH.clamp(28.0, double.infinity);
+    final top = _minsToY(startMins),
+        rawH = (durMins / 60.0) * _hourH,
+        height = rawH.clamp(28.0, double.infinity);
     final c = _evColor(ev), isDragging = _drag?.eventId == ev.id;
     final innerRight = gridWidth - _rPad;
     final availW = math.max(0.0, innerRight - _timeColW);
     final gapTotal = (info.totalCols - 1) * _colGap;
-    final colW = info.totalCols > 0 ? (availW - gapTotal) / info.totalCols : availW;
+    final colW =
+        info.totalCols > 0 ? (availW - gapTotal) / info.totalCols : availW;
     final left = _timeColW + (colW + _colGap) * info.col;
     var effColW = colW;
     if (left + effColW > innerRight + 0.5) {
       effColW = math.max(18.0, innerRight - left);
     }
-    final nowMins = now.hour * 60 + now.minute, isPast  = isToday && !isDragging && (startMins + durMins) < nowMins;
+    final nowMins = now.hour * 60 + now.minute,
+        isPast = isToday && !isDragging && (startMins + durMins) < nowMins;
     return Positioned(
-      top: top, left: left, width: effColW, height: height,
-      child: Opacity(
-        opacity: isPast ? 0.52 : 1.0,
-        child: _EventTile(
-          event: ev, color: c, height: height, durMins: durMins, isDragging: isDragging, tileWidth: effColW,
-          onTap: () { if (_drag == null) _openDetail(ev.id); },
-          onMoveStart: (globalY) { setState(() { _drag = _DragState(eventId: ev.id, kind: _DragKind.move, origStart: startMins, origDuration: durMins, startGlobalY: globalY); _startOvr[ev.id] = startMins; _durOvr[ev.id] = durMins; }); },
-          onMoveUpdate: (globalY) { if (_drag?.eventId != ev.id || _drag?.kind != _DragKind.move) return; final newStart = _clampStart(_deltaToMins(globalY, _drag!.startGlobalY, _drag!.origStart), _drag!.origDuration); setState(() => _startOvr[ev.id] = newStart); },
-          onMoveEnd: () { if (_drag?.eventId != ev.id) return; final newStart = _startOvr[ev.id] ?? startMins; widget.onEventMoved?.call(ev, newStart); setState(() { _drag = null; _startOvr.remove(ev.id); _durOvr.remove(ev.id); }); },
-          onResizeTopStart: (globalY) { setState(() { _drag = _DragState(eventId: ev.id, kind: _DragKind.resizeTop, origStart: startMins, origDuration: durMins, startGlobalY: globalY); _startOvr[ev.id] = startMins; _durOvr[ev.id] = durMins; }); },
-          onResizeTopUpdate: (globalY) { if (_drag?.eventId != ev.id || _drag?.kind != _DragKind.resizeTop) return; final fixedEnd = _drag!.origStart + _drag!.origDuration; final newStart = _deltaToMins(globalY, _drag!.startGlobalY, _drag!.origStart).clamp(0, fixedEnd - _snapMins); setState(() { _startOvr[ev.id] = newStart; _durOvr[ev.id] = fixedEnd - newStart; }); },
-          onResizeTopEnd: () { if (_drag?.eventId != ev.id) return; final newStart = _startOvr[ev.id] ?? startMins; final newDur = _durOvr[ev.id] ?? durMins; widget.onEventResized?.call(ev, newStart, newDur); setState(() { _drag = null; _startOvr.remove(ev.id); _durOvr.remove(ev.id); }); },
-          onResizeBottomStart: (globalY) { setState(() { _drag = _DragState(eventId: ev.id, kind: _DragKind.resizeBottom, origStart: startMins, origDuration: durMins, startGlobalY: globalY); _startOvr[ev.id] = startMins; _durOvr[ev.id] = durMins; }); },
-          onResizeBottomUpdate: (globalY) { if (_drag?.eventId != ev.id || _drag?.kind != _DragKind.resizeBottom) return; final fixedStart = _drag!.origStart, origEnd = fixedStart + _drag!.origDuration, newEnd = _clampEnd(_deltaToMins(globalY, _drag!.startGlobalY, origEnd), fixedStart); setState(() { _startOvr[ev.id] = fixedStart; _durOvr[ev.id] = newEnd - fixedStart; }); },
-          onResizeBottomEnd: () { if (_drag?.eventId != ev.id) return; final newStart = _startOvr[ev.id] ?? startMins; final newDur = _durOvr[ev.id] ?? durMins; widget.onEventResized?.call(ev, newStart, newDur); setState(() { _drag = null; _startOvr.remove(ev.id); _durOvr.remove(ev.id); }); },
+      top: top,
+      left: left,
+      width: effColW,
+      height: height,
+      child: RepaintBoundary(
+        child: Opacity(
+          opacity: isPast ? 0.52 : 1.0,
+          child: _EventTile(
+            event: ev,
+            color: c,
+            height: height,
+            durMins: durMins,
+            isDragging: isDragging,
+            tileWidth: effColW,
+            onTap: () {
+              if (_drag == null) _openDetail(ev.id);
+            },
+            onMoveStart: (globalY) {
+              setState(() {
+                _drag = _DragState(
+                    eventId: ev.id,
+                    kind: _DragKind.move,
+                    origStart: startMins,
+                    origDuration: durMins,
+                    startGlobalY: globalY);
+                _startOvr[ev.id] = startMins;
+                _durOvr[ev.id] = durMins;
+              });
+            },
+            onMoveUpdate: (globalY) {
+              if (_drag?.eventId != ev.id || _drag?.kind != _DragKind.move)
+                return;
+              final newStart = _clampStart(
+                  _deltaToMins(globalY, _drag!.startGlobalY, _drag!.origStart),
+                  _drag!.origDuration);
+              setState(() => _startOvr[ev.id] = newStart);
+            },
+            onMoveEnd: () {
+              if (_drag?.eventId != ev.id) return;
+              final newStart = _startOvr[ev.id] ?? startMins;
+              widget.onEventMoved?.call(ev, newStart);
+              setState(() {
+                _drag = null;
+                _startOvr.remove(ev.id);
+                _durOvr.remove(ev.id);
+              });
+            },
+            onResizeTopStart: (globalY) {
+              setState(() {
+                _drag = _DragState(
+                    eventId: ev.id,
+                    kind: _DragKind.resizeTop,
+                    origStart: startMins,
+                    origDuration: durMins,
+                    startGlobalY: globalY);
+                _startOvr[ev.id] = startMins;
+                _durOvr[ev.id] = durMins;
+              });
+            },
+            onResizeTopUpdate: (globalY) {
+              if (_drag?.eventId != ev.id || _drag?.kind != _DragKind.resizeTop)
+                return;
+              final fixedEnd = _drag!.origStart + _drag!.origDuration;
+              final newStart =
+                  _deltaToMins(globalY, _drag!.startGlobalY, _drag!.origStart)
+                      .clamp(0, fixedEnd - _snapMins);
+              setState(() {
+                _startOvr[ev.id] = newStart;
+                _durOvr[ev.id] = fixedEnd - newStart;
+              });
+            },
+            onResizeTopEnd: () {
+              if (_drag?.eventId != ev.id) return;
+              final newStart = _startOvr[ev.id] ?? startMins;
+              final newDur = _durOvr[ev.id] ?? durMins;
+              widget.onEventResized?.call(ev, newStart, newDur);
+              setState(() {
+                _drag = null;
+                _startOvr.remove(ev.id);
+                _durOvr.remove(ev.id);
+              });
+            },
+            onResizeBottomStart: (globalY) {
+              setState(() {
+                _drag = _DragState(
+                    eventId: ev.id,
+                    kind: _DragKind.resizeBottom,
+                    origStart: startMins,
+                    origDuration: durMins,
+                    startGlobalY: globalY);
+                _startOvr[ev.id] = startMins;
+                _durOvr[ev.id] = durMins;
+              });
+            },
+            onResizeBottomUpdate: (globalY) {
+              if (_drag?.eventId != ev.id ||
+                  _drag?.kind != _DragKind.resizeBottom) return;
+              final fixedStart = _drag!.origStart,
+                  origEnd = fixedStart + _drag!.origDuration,
+                  newEnd = _clampEnd(
+                      _deltaToMins(globalY, _drag!.startGlobalY, origEnd),
+                      fixedStart);
+              setState(() {
+                _startOvr[ev.id] = fixedStart;
+                _durOvr[ev.id] = newEnd - fixedStart;
+              });
+            },
+            onResizeBottomEnd: () {
+              if (_drag?.eventId != ev.id) return;
+              final newStart = _startOvr[ev.id] ?? startMins;
+              final newDur = _durOvr[ev.id] ?? durMins;
+              widget.onEventResized?.call(ev, newStart, newDur);
+              setState(() {
+                _drag = null;
+                _startOvr.remove(ev.id);
+                _durOvr.remove(ev.id);
+              });
+            },
+          ),
         ),
       ),
     );
   }
 
   Widget _buildDraftPositioned(double gridWidth) {
-    final d = _draft!; 
+    final d = _draft!;
     final top = _minsToY(d.startMins);
-    
+
     return Positioned(
-      top: top, 
-      left: _timeColW + 4, 
+      top: top,
+      left: _timeColW + 4,
       width: math.max(0.0, gridWidth - _timeColW - 4 - _rPad),
       // We don't set height here because the DraftTile will handle its own height sizing and constraints.
       child: _DraftTile(
-        draft: d, 
-        controller: _draftCtrl, 
-        focusNode: _draftFocus, 
-        onConfirm: _confirmDraft, 
+        draft: d,
+        controller: _draftCtrl,
+        focusNode: _draftFocus,
+        onConfirm: _confirmDraft,
         onCancel: _cancelDraft,
         isSubmitting: _isSubmittingDraft,
         date: widget.date,
         onDurationChanged: (newDur) {
-          setState(() { _draft!.durationMins = newDur; });
+          setState(() {
+            _draft!.durationMins = newDur;
+          });
         },
         hourHeight: _hourH,
       ),
@@ -622,7 +833,12 @@ class _EventTile extends StatelessWidget {
       duration: const Duration(milliseconds: 120),
       decoration: BoxDecoration(
         boxShadow: isDragging
-            ? [BoxShadow(color: color.withOpacity(0.28), blurRadius: 28, offset: const Offset(0, 6))]
+            ? [
+                BoxShadow(
+                    color: color.withOpacity(0.28),
+                    blurRadius: 28,
+                    offset: const Offset(0, 6))
+              ]
             : null,
       ),
       child: ClipRRect(
@@ -633,103 +849,115 @@ class _EventTile extends StatelessWidget {
             border: Border.all(color: borderC, width: 1),
           ),
           child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(width: accentW, child: ColoredBox(color: color)),
-            Expanded(
-              child: Stack(
-                clipBehavior: Clip.hardEdge,
-                fit: StackFit.expand,
-                children: [
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: onTap,
-                      onLongPressStart: (d) => onMoveStart(d.globalPosition.dy),
-                      onLongPressMoveUpdate: (d) => onMoveUpdate(d.globalPosition.dy),
-                      onLongPressEnd: (_) => onMoveEnd(),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Flexible(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (innerH >= 24)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 5, top: 3.5),
-                                      child: EventUi.statusDot(event.status, size: 6.5),
-                                    ),
-                                  Expanded(
-                                    child: Text(
-                                      event.displayTitle,
-                                      style: GoogleFonts.roboto(
-                                        fontSize: tileWidth < 56 ? 11 : 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary,
-                                        height: 1.2,
-                                      ),
-                                      maxLines: innerH >= 48 ? 2 : 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (showFooter)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4, top: 1),
-                                      child: EventUi.dailyFooter(event, iconSize: 10),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (showTime)
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: accentW, child: ColoredBox(color: color)),
+              Expanded(
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  fit: StackFit.expand,
+                  children: [
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: onTap,
+                        onLongPressStart: (d) =>
+                            onMoveStart(d.globalPosition.dy),
+                        onLongPressMoveUpdate: (d) =>
+                            onMoveUpdate(d.globalPosition.dy),
+                        onLongPressEnd: (_) => onMoveEnd(),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.max,
+                            children: [
                               Flexible(
-                                flex: 0,
-                                child: Text(
-                                  _fmtTime(),
-                                  style: GoogleFonts.roboto(fontSize: 9, color: AppColors.textMuted),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (innerH >= 24)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            right: 5, top: 3.5),
+                                        child: EventUi.statusDot(event.status,
+                                            size: 6.5),
+                                      ),
+                                    Expanded(
+                                      child: Text(
+                                        event.displayTitle,
+                                        style: GoogleFonts.roboto(
+                                          fontSize: tileWidth < 56 ? 11 : 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                          height: 1.2,
+                                        ),
+                                        maxLines: innerH >= 48 ? 2 : 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (showFooter)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: 4, top: 1),
+                                        child: EventUi.dailyFooter(event,
+                                            iconSize: 10),
+                                      ),
+                                  ],
                                 ),
                               ),
-                          ],
+                              if (showTime)
+                                Flexible(
+                                  flex: 0,
+                                  child: Text(
+                                    _fmtTime(),
+                                    style: GoogleFonts.roboto(
+                                        fontSize: 9,
+                                        color: AppColors.textMuted),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: _handleH,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onVerticalDragStart: (d) => onResizeTopStart(d.globalPosition.dy),
-                      onVerticalDragUpdate: (d) => onResizeTopUpdate(d.globalPosition.dy),
-                      onVerticalDragEnd: (_) => onResizeTopEnd(),
-                      child: _ResizeBar(color: color),
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: _handleH,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onVerticalDragStart: (d) =>
+                            onResizeTopStart(d.globalPosition.dy),
+                        onVerticalDragUpdate: (d) =>
+                            onResizeTopUpdate(d.globalPosition.dy),
+                        onVerticalDragEnd: (_) => onResizeTopEnd(),
+                        child: _ResizeBar(color: color),
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: _handleH,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onVerticalDragStart: (d) => onResizeBottomStart(d.globalPosition.dy),
-                      onVerticalDragUpdate: (d) => onResizeBottomUpdate(d.globalPosition.dy),
-                      onVerticalDragEnd: (_) => onResizeBottomEnd(),
-                      child: _ResizeBar(color: color),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: _handleH,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onVerticalDragStart: (d) =>
+                            onResizeBottomStart(d.globalPosition.dy),
+                        onVerticalDragUpdate: (d) =>
+                            onResizeBottomUpdate(d.globalPosition.dy),
+                        onVerticalDragEnd: (_) => onResizeBottomEnd(),
+                        child: _ResizeBar(color: color),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -763,22 +991,26 @@ class _DraftTile extends StatefulWidget {
   State<_DraftTile> createState() => _DraftTileState();
 }
 
-class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMixin {
+class _DraftTileState extends State<_DraftTile>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animCtrl;
   late Animation<double> _scaleAnim;
   late Animation<double> _fadeAnim;
-  
+
   double? _dragInitialHeight;
   double? _dragStartY;
-  
+
   static const double _snapMins = 15.0;
 
   @override
   void initState() {
     super.initState();
-    _animCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
-    _scaleAnim = Tween<double>(begin: 0.95, end: 1.0).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+    _animCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 200));
+    _scaleAnim = Tween<double>(begin: 0.95, end: 1.0).animate(
+        CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
     _animCtrl.forward();
   }
 
@@ -807,12 +1039,15 @@ class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMi
   void _onResizeUpdate(DragUpdateDetails d) {
     if (_dragStartY == null || _dragInitialHeight == null) return;
     final dy = d.globalPosition.dy - _dragStartY!;
-    final newHeight = math.max(30.0, _dragInitialHeight! + dy); // config min height
-    
+    final newHeight =
+        math.max(30.0, _dragInitialHeight! + dy); // config min height
+
     // Convert height back to mins and snap
     final rawMins = (newHeight / widget.hourHeight) * 60;
-    final snappedMins = ((rawMins / _snapMins).round() * _snapMins).clamp(15.0, 24 * 60.0).toInt();
-    
+    final snappedMins = ((rawMins / _snapMins).round() * _snapMins)
+        .clamp(15.0, 24 * 60.0)
+        .toInt();
+
     if (snappedMins != widget.draft.durationMins) {
       widget.onDurationChanged(snappedMins);
     }
@@ -843,7 +1078,8 @@ class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMi
 
   @override
   Widget build(BuildContext context) {
-    final currentHeight = (widget.draft.durationMins / 60.0) * widget.hourHeight;
+    final currentHeight =
+        (widget.draft.durationMins / 60.0) * widget.hourHeight;
     final h = math.max(48.0, currentHeight); // minimum visual height
 
     return AnimatedBuilder(
@@ -860,22 +1096,29 @@ class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMi
       },
       child: GestureDetector(
         onTap: () {}, // consume tap so it doesn't close the draft
-        onDoubleTap: _openDetailEditor, // Notion-style: double tap or separate button to open full editor? Let's use a button.
+        onDoubleTap:
+            _openDetailEditor, // Notion-style: double tap or separate button to open full editor? Let's use a button.
         child: Container(
           height: h,
           decoration: BoxDecoration(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.08), 
+            color: const Color(0xFF6366F1).withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3), width: 1),
+            border: Border.all(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                width: 1),
           ),
           child: Stack(
             children: [
               Positioned(
-                left: 0, top: 0, bottom: 0, width: 3,
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 3,
                 child: Container(
                   decoration: const BoxDecoration(
                     color: Color(0xFF6366F1),
-                    borderRadius: BorderRadius.horizontal(left: Radius.circular(5)),
+                    borderRadius:
+                        BorderRadius.horizontal(left: Radius.circular(5)),
                   ),
                 ),
               ),
@@ -892,17 +1135,18 @@ class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMi
                               controller: widget.controller,
                               focusNode: widget.focusNode,
                               style: GoogleFonts.inter(
-                                fontSize: 13, 
-                                fontWeight: FontWeight.w600, 
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
                                 color: const Color(0xFF6366F1),
                                 height: 1.2,
                               ),
                               decoration: InputDecoration(
                                 hintText: 'Event title',
                                 hintStyle: GoogleFonts.inter(
-                                  fontSize: 13, 
-                                  fontWeight: FontWeight.w500, 
-                                  color: const Color(0xFF6366F1).withValues(alpha: 0.5),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF6366F1)
+                                      .withValues(alpha: 0.5),
                                   height: 1.2,
                                 ),
                                 border: InputBorder.none,
@@ -919,11 +1163,17 @@ class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMi
                               textInputAction: TextInputAction.done,
                             ),
                           ),
-                          _DraftBtn(icon: Icons.more_horiz_rounded, onTap: _openDetailEditor),
+                          _DraftBtn(
+                              icon: Icons.more_horiz_rounded,
+                              onTap: _openDetailEditor),
                           const SizedBox(width: 6),
-                          _DraftBtn(icon: Icons.check_rounded, onTap: widget.onConfirm),
+                          _DraftBtn(
+                              icon: Icons.check_rounded,
+                              onTap: widget.onConfirm),
                           const SizedBox(width: 6),
-                          _DraftBtn(icon: Icons.close_rounded, onTap: widget.onCancel),
+                          _DraftBtn(
+                              icon: Icons.close_rounded,
+                              onTap: widget.onCancel),
                         ],
                       ),
                       if (h > 60) ...[
@@ -931,8 +1181,9 @@ class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMi
                         Text(
                           _timeLabel(),
                           style: GoogleFonts.inter(
-                            fontSize: 11, 
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.8),
+                            fontSize: 11,
+                            color:
+                                const Color(0xFF6366F1).withValues(alpha: 0.8),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -975,25 +1226,21 @@ class _DraftTileState extends State<_DraftTile> with SingleTickerProviderStateMi
 }
 
 class _ResizeBar extends StatelessWidget {
-  final Color color; 
+  final Color color;
   const _ResizeBar({required this.color});
-  
+
   @override
-  Widget build(BuildContext context) { 
+  Widget build(BuildContext context) {
     return MouseRegion(
-      cursor: SystemMouseCursors.resizeUpDown, 
-      child: Container(
-        alignment: Alignment.center, 
+        cursor: SystemMouseCursors.resizeUpDown,
         child: Container(
-          width: 28, 
-          height: 2, 
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.35), 
-            borderRadius: BorderRadius.circular(2)
-          )
-        )
-      )
-    ); 
+            alignment: Alignment.center,
+            child: Container(
+                width: 28,
+                height: 2,
+                decoration: BoxDecoration(
+                    color: color.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(2)))));
   }
 }
 
@@ -1008,11 +1255,12 @@ class _DraftBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 22, height: 20,
+        width: 22,
+        height: 20,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4), 
-          border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.25))
-        ),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.25))),
         alignment: Alignment.center,
         child: Icon(icon, size: 12, color: const Color(0xFF6366F1)),
       ),
